@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPProcessListController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPProcessListController.h"
 #import "SPDatabaseDocument.h"
@@ -87,7 +85,7 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 
 - (void)awakeFromNib
 {	
-	[[self window] setTitle:[NSString stringWithFormat:NSLocalizedString(@"Server Processes on %@", @"server processes window title (var = hostname)"),[[(SPAppController*)[NSApp delegate] frontDocument] name]]];
+	[[self window] setTitle:[NSString stringWithFormat:NSLocalizedString(@"Server Processes on %@", @"server processes window title (var = hostname)"),[[SPAppDelegate frontDocument] name]]];
 	
 	[self setWindowFrameAutosaveName:@"ProcessList"];
 	
@@ -99,10 +97,11 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 
 	// Set the strutcture and index view's font
 	BOOL useMonospacedFont = [prefs boolForKey:SPUseMonospacedFonts];
-	
+	CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
 	for (NSTableColumn *column in [processListTableView tableColumns])
 	{
-		[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+		[[column dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 
 		// Add a formatter for linebreak display
 		[[column dataCell] setFormatter:[[SPDataCellFormatter new] autorelease]];
@@ -168,7 +167,7 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 		NSPasteboard *pasteBoard = [NSPasteboard generalPasteboard];
 		
 		// Copy the string to the pasteboard
-		[pasteBoard declareTypes:[NSArray arrayWithObjects:NSStringPboardType, nil] owner:nil];
+		[pasteBoard declareTypes:@[NSStringPboardType] owner:nil];
 		[pasteBoard setString:string forType:NSStringPboardType];
 	}
 }
@@ -235,7 +234,32 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	[panel setAllowsOtherFileTypes:YES];
 	[panel setCanSelectHiddenExtension:YES];
 	
-	[panel beginSheetForDirectory:nil file:@"ServerProcesses" modalForWindow:[self window] modalDelegate:self didEndSelector:@selector(savePanelDidEnd:returnCode:contextInfo:) contextInfo:nil];
+    [panel setNameFieldStringValue:@"ServerProcesses"];
+    [panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+        if (returnCode == NSOKButton) {
+            if ([processesFiltered count] > 0) {
+                NSMutableString *processesString = [NSMutableString stringWithFormat:@"# MySQL server proceese for %@\n\n", [[SPAppDelegate frontDocument] host]];
+                
+                for (NSDictionary *process in processesFiltered)
+                {
+                    NSString *stringTmp = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@",
+                                           [process objectForKey:@"Id"],
+                                           [process objectForKey:@"User"],
+                                           [process objectForKey:@"Host"],
+                                           [process objectForKey:@"db"],
+                                           [process objectForKey:@"Command"],
+                                           [process objectForKey:@"Time"],
+                                           [process objectForKey:@"State"],
+                                           [process objectForKey:@"Info"]];
+                    
+                    [processesString appendString:stringTmp];
+                    [processesString appendString:@"\n"];
+                }
+                
+                [processesString writeToURL:[panel URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+            }
+        }
+    }];
 }
 
 /**
@@ -395,36 +419,6 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 }
 
 /**
- * Invoked when the save panel is dismissed.
- */
-- (void)savePanelDidEnd:(NSSavePanel *)panel returnCode:(NSInteger)returnCode contextInfo:(NSString *)contextInfo
-{
-	if (returnCode == NSOKButton) {
-		if ([processesFiltered count] > 0) {
-			NSMutableString *processesString = [NSMutableString stringWithFormat:@"# MySQL server proceese for %@\n\n", [[[NSApp delegate] frontDocument] host]];
-			
-			for (NSDictionary *process in processesFiltered)
-			{
-				NSString *stringTmp = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@ %@",
-									   [process objectForKey:@"Id"],
-									   [process objectForKey:@"User"],
-									   [process objectForKey:@"Host"],
-									   [process objectForKey:@"db"],
-									   [process objectForKey:@"Command"],
-									   [process objectForKey:@"Time"],
-									   [process objectForKey:@"State"],
-									   [process objectForKey:@"Info"]];
-				
-				[processesString appendString:stringTmp];
-				[processesString appendString:@"\n"];
-			}
-			
-			[processesString writeToURL:[panel URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-		}
-	}
-}
-
-/**
  * Menu item validation.
  */
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
@@ -467,10 +461,11 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	else if ([keyPath isEqualToString:SPUseMonospacedFonts]) {
 		
 		BOOL useMonospacedFont = [[change objectForKey:NSKeyValueChangeNewKey] boolValue];
-		
+		CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
 		for (NSTableColumn *column in [processListTableView tableColumns])
 		{
-			[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+			[[column dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 		}
 		
 		[processListTableView reloadData];
@@ -505,7 +500,7 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 {	
 	// If the filtered array is allocated and it's not a reference to the processes array get rid of it
 	if ((processesFiltered) && (processesFiltered != processes)) {
-		[processesFiltered release], processesFiltered = nil;
+		SPClear(processesFiltered);
 	}
 	
 	// Kill the auto refresh timer if running
@@ -559,7 +554,7 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	// If the auto refresh timer is running, kill it
 	if (autoRefreshTimer && [autoRefreshTimer isValid]) {		
 		[autoRefreshTimer invalidate];
-		[autoRefreshTimer release], autoRefreshTimer = nil;
+		SPClear(autoRefreshTimer);
 	}
 }
 
@@ -632,7 +627,7 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 		
 		[processList setReturnDataAsStrings:YES];
 
-		[processes removeAllObjects];
+		[[processes onMainThread] removeAllObjects];
 		
 		for (i = 0; i < [processList numberOfRows]; i++) 
 		{
@@ -655,7 +650,11 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 				[rowsFixed setObject:num forKey:@"Time"];
 			}
 			
-			[processes addObject:[[rowsFixed copy] autorelease]];
+			// This is pretty bad from a performance standpoint, but we must not
+			// interfere with the NSTableView's reload cycle and there is no way
+			// to know when it starts/ends. We only know it will happen on the
+			// main thread, so we have to interlock with that.
+			[[processes onMainThread] addObject:[[rowsFixed copy] autorelease]];
 			[rowsFixed release];
 		}
 
@@ -677,8 +676,11 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	
 	// Check for errors
 	if ([connection queryErrored]) {
-		SPBeginAlertSheet(NSLocalizedString(@"Unable to kill query", @"error killing query message"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [self window], self, nil, nil,
-						  [NSString stringWithFormat:NSLocalizedString(@"An error occured while attempting to kill the query associated with connection %lld.\n\nMySQL said: %@", @"error killing query informative message"), processId, [connection lastErrorMessage]]);
+		SPOnewayAlertSheet(
+			NSLocalizedString(@"Unable to kill query", @"error killing query message"),
+			[self window],
+			[NSString stringWithFormat:NSLocalizedString(@"An error occured while attempting to kill the query associated with connection %lld.\n\nMySQL said: %@", @"error killing query informative message"), processId, [connection lastErrorMessage]]
+		);
 	}
 	
 	// Refresh the process list
@@ -695,8 +697,11 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	
 	// Check for errors
 	if ([connection queryErrored]) {
-		SPBeginAlertSheet(NSLocalizedString(@"Unable to kill connection", @"error killing connection message"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [self window], self, nil, nil,
-						  [NSString stringWithFormat:NSLocalizedString(@"An error occured while attempting to kill connection %lld.\n\nMySQL said: %@", @"error killing query informative message"), processId, [connection lastErrorMessage]]);
+		SPOnewayAlertSheet(
+			NSLocalizedString(@"Unable to kill connection", @"error killing connection message"),
+			[self window],
+			[NSString stringWithFormat:NSLocalizedString(@"An error occured while attempting to kill connection %lld.\n\nMySQL said: %@", @"error killing query informative message"), processId, [connection lastErrorMessage]]
+		);
 	}
 	
 	// Refresh the process list
@@ -715,7 +720,7 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	// If the filtered array is allocated and its not a reference to the processes array,
 	// relase it to prevent memory leaks upon the next allocation.
 	if ((processesFiltered) && (processesFiltered != processes)) {
-		[processesFiltered release], processesFiltered = nil;
+		SPClear(processesFiltered);
 	}
 	
 	processesFiltered = [[NSMutableArray alloc] init];
@@ -768,9 +773,9 @@ static NSString *SPTableViewIDColumnIdentifier = @"Id";
 	
 	processListThreadRunning = NO;
 	
-	[processes release], processes = nil;
+	SPClear(processes);
 	
-	if (autoRefreshTimer) [autoRefreshTimer release], autoRefreshTimer = nil;
+	if (autoRefreshTimer) SPClear(autoRefreshTimer);
 	
 	[super dealloc];
 }

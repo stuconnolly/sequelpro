@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoriteNode.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTreeNode.h"
 #import "SPFavoriteNode.h"
@@ -83,6 +81,10 @@ static NSString *SPFavoriteNodeKey = @"SPFavoriteNode";
 
 - (id)initWithCoder:(NSCoder *)coder
 {
+	if (!(self = [super init])) {
+		return nil;
+	}
+	
 	[self setNodeFavorite:[coder decodeObjectForKey:SPFavoriteNodeKey]];
 	
 	return self;
@@ -98,14 +100,19 @@ static NSString *SPFavoriteNodeKey = @"SPFavoriteNode";
 
 - (NSString *)description
 {
-	return [NSString stringWithFormat:@"<%@: %p ('%@')>", [self className], self, [[self nodeFavorite] objectForKey:SPFavoriteNameKey]];
+	return [NSString stringWithFormat:@"<%@: %p ('%@')>", [self className], self, [self nodeName]];
+}
+
+- (NSString *)nodeName
+{
+	return [[self nodeFavorite] objectForKey:SPFavoriteNameKey];
 }
 
 #pragma mark -
 
 - (void)dealloc
 {
-	if (nodeFavorite) [nodeFavorite release], nodeFavorite = nil;
+	if (nodeFavorite) SPClear(nodeFavorite);
 	
 	[super dealloc];
 }

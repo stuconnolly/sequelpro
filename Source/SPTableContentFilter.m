@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableContentFilter.m
 //  sequel-pro
 //
@@ -31,6 +29,7 @@
 #import "SPTableContentFilter.h"
 #import "RegexKitLite.h"
 #import "SPCopyTable.h"
+#import "SPTextView.h"
 
 @implementation SPTableContent (SPTableContentFilter)
 

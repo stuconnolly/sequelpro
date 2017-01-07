@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  QKSelectQueryGroupByTests.h
 //  QueryKit
 //
@@ -31,10 +29,10 @@
 #import "QKTestCase.h"
 
 #import <QueryKit/QueryKit.h>
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 @interface QKSelectQueryGroupByTests : QKTestCase
 
-+ (void)addTestForDatabase:(QKQueryDatabase)database withIdentifierQuote:(NSString *)quote toTestSuite:(SenTestSuite *)testSuite;
++ (void)addTestForDatabase:(QKQueryDatabase)database withIdentifierQuote:(NSString *)quote toTestSuite:(XCTestSuite *)testSuite;
 
 @end

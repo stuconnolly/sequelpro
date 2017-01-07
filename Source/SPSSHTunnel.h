@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPSSHTunnel.h
 //  sequel-pro
 //
@@ -30,7 +28,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import <SPMySQL/SPMySQL.h>
 
@@ -43,6 +41,7 @@
 	NSPipe *standardError;
 	NSConnection *tunnelConnection;
 	NSString *lastError;
+	id lastErrorLock;
 	NSString *tunnelConnectionName;
 	NSString *tunnelConnectionVerifyHash;
 	NSString *sshHost;

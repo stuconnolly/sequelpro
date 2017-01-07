@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPBundleHTMLOutputController.m
 //  sequel-pro
 //
@@ -28,13 +26,15 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPBundleHTMLOutputController.h"
 #import "SPAlertSheets.h"
 #import "SPPrintAccessory.h"
 #import "SPAppController.h"
 #import "SPBundleCommandRunner.h"
+
+static NSString *SPSaveDocumentAction = @"SPSaveDocument";
 
 @class WebScriptCallFrame;
 
@@ -126,7 +126,7 @@
 
 - (void)dealloc
 {
-	if(webPreferences) [webPreferences release];
+	if(webPreferences) SPClear(webPreferences);
 	[super dealloc];
 }
 
@@ -176,14 +176,13 @@
  */
 - (void)sheetDidEnd:(id)sheet returnCode:(NSInteger)returnCode contextInfo:(NSString *)contextInfo
 {
-
 	// Order out current sheet to suppress overlapping of sheets
 	if ([sheet respondsToSelector:@selector(orderOut:)])
 		[sheet orderOut:nil];
 	else if ([sheet respondsToSelector:@selector(window)])
 		[[sheet window] orderOut:nil];
 
-	if([contextInfo isEqualToString:@"saveDocument"]) {
+	if ([contextInfo isEqualToString:SPSaveDocumentAction]) {
 		if (returnCode == NSOKButton) {
 			NSString *sourceCode = [webView stringByEvaluatingJavaScriptFromString:@"document.getElementsByTagName('html')[0].outerHTML"];
 			NSError *err = nil;
@@ -191,11 +190,9 @@
 						atomically:YES
 						encoding:NSUTF8StringEncoding
 						error:&err];
-			if(err != nil) {
-				SPBeginAlertSheet(NSLocalizedString(@"Error", @"error"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [self window], self, nil, nil,
-								  [NSString stringWithFormat:@"%@", [err localizedDescription]]);
+			if (err != nil) {
+				SPOnewayAlertSheet(NSLocalizedString(@"Error", @"error"), [self window], [NSString stringWithFormat:@"%@", [err localizedDescription]]);
 			}
-			
 		}
 	}
 }
@@ -252,42 +249,52 @@
 		delegate:self
 		didRunSelector:nil
 		contextInfo:nil];
-
 }
 
 - (void)showSourceCode
 {
 	NSString *sourceCode = [webView stringByEvaluatingJavaScriptFromString:@"document.getElementsByTagName('html')[0].outerHTML"];
+
 	SPBundleHTMLOutputController *c = [[SPBundleHTMLOutputController alloc] init];
+
 	[c displayHTMLContent:[NSString stringWithFormat:@"<pre>%@</pre>", [sourceCode HTMLEscapeString]] withOptions:nil];
-	[[NSApp delegate] addHTMLOutputController:c];
+
+	[SPAppDelegate addHTMLOutputController:c];
 }
 
 - (void)saveDocument
 {
 	NSSavePanel *panel = [NSSavePanel savePanel];
-	
-	[panel setAllowedFileTypes:[NSArray arrayWithObject:@"html"]];
+
+	[panel setNameFieldStringValue:@"output"];
+	[panel setAllowedFileTypes:@[@"html"]];
 	
 	[panel setExtensionHidden:NO];
 	[panel setAllowsOtherFileTypes:YES];
 	[panel setCanSelectHiddenExtension:YES];
 	[panel setCanCreateDirectories:YES];
 
-	[panel beginSheetForDirectory:nil file:@"output" modalForWindow:[self window] modalDelegate:self didEndSelector:@selector(sheetDidEnd:returnCode:contextInfo:) contextInfo:@"saveDocument"];
+	[panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger returnCode)
+	{
+		[self sheetDidEnd:panel returnCode:returnCode contextInfo:SPSaveDocumentAction];
+	}];
 }
-
 
 #pragma mark -
 
 - (void)windowWillClose:(NSNotification *)notification
 {
 	[[webView mainFrame] loadHTMLString:@"<html></html>" baseURL:nil];
+
 	[webView close];
+
 	[self setInitHTMLSourceString:@""];
+
 	windowUUID = @"";
 	docUUID = @"";
-	[[NSApp delegate] removeHTMLOutputController:self];
+
+	[SPAppDelegate removeHTMLOutputController:self];
+
 	[self release];
 }
 
@@ -324,7 +331,7 @@
 	if(request != nil) {
 		SPBundleHTMLOutputController *c = [[SPBundleHTMLOutputController alloc] init];
 		[c displayURLString:[[request URL] absoluteString] withOptions:nil];
-		[[NSApp delegate] addHTMLOutputController:c];
+		[SPAppDelegate addHTMLOutputController:c];
 		return [c webView];
 	}
 	return nil;
@@ -333,22 +340,22 @@
 - (void)webViewShow:(WebView *)sender
 {
 	id newWebView = [[NSDocumentController sharedDocumentController] documentForWindow:[sender window]];
+
 	[newWebView showWindows];
 }
 
 - (void)webView:(WebView *)aWebView decidePolicyForNavigationAction:(NSDictionary *)actionInformation request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener
 {
-
 	NSInteger navigationType = [[actionInformation objectForKey:WebActionNavigationTypeKey] integerValue];
 
 	// sequelpro:// handler
 	if([[[request URL] scheme] isEqualToString:@"sequelpro"] && navigationType == WebNavigationTypeLinkClicked) {
-		[[NSApp delegate] handleEventWithURL:[request URL]];
+		[SPAppDelegate handleEventWithURL:[request URL]];
 		[listener ignore];
 	}
 	// sp-reveal-file://a_file_path reveals the file in Finder
 	else if([[[request URL] scheme] isEqualToString:@"sp-reveal-file"] && navigationType == WebNavigationTypeLinkClicked) {
-		[[NSWorkspace sharedWorkspace] selectFile:[[[request mainDocumentURL] absoluteString] substringFromIndex:16] inFileViewerRootedAtPath:nil];
+		[[NSWorkspace sharedWorkspace] selectFile:[[[request mainDocumentURL] absoluteString] substringFromIndex:16] inFileViewerRootedAtPath:@""];
 		[listener ignore];
 	}
 	// sp-open-file://a_file_path opens the file with the default
@@ -369,9 +376,7 @@
 			default:
 			[listener use];
 		}
-
 	}
-
 }
 
 - (void)webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame
@@ -436,7 +441,6 @@
 
 - (void)webView:(WebView *)sender windowScriptObjectAvailable:(WebScriptObject *)windowScriptObject
 {
-
 	[windowScriptObject setValue:self forKey:@"system"];
 	[webView setScriptDebugDelegate:self];
 }
@@ -462,53 +466,68 @@
 	return @"";
 }
 
-+ (BOOL)isSelectorExcludedFromWebScript:(SEL)selector {
++ (BOOL)isSelectorExcludedFromWebScript:(SEL)selector
+{
 	if (selector == @selector(run:)) {
 		return NO;
 	}
+
 	if (selector == @selector(getShellEnvironmentForName:)) {
 		return NO;
 	}
+
 	if (selector == @selector(insertText:)) {
 		return NO;
 	}
+
 	if (selector == @selector(setText:)) {
 		return NO;
 	}
+
 	if (selector == @selector(setSelectedTextRange:)) {
 		return NO;
 	}
+
 	if (selector == @selector(makeHTMLOutputWindowKeyWindow)) {
 		return NO;
 	}
+
 	if (selector == @selector(closeHTMLOutputWindow)) {
 		return NO;
 	}
+
 	if (selector == @selector(suppressExceptionAlert)) {
 		return NO;
 	}
+
 	return YES;
 }
 
-+ (BOOL)isKeyExcludedFromWebScript:(const char *)property {
++ (BOOL)isKeyExcludedFromWebScript:(const char *)property
+{
 	if (strcmp(property, "run") == 0) {
 		return NO;
 	}
+
 	if (strcmp(property, "getShellEnvironmentForName") == 0) {
 		return NO;
 	}
+
 	if (strcmp(property, "insertText") == 0) {
 		return NO;
 	}
+
 	if (strcmp(property, "setText") == 0) {
 		return NO;
 	}
+
 	if (strcmp(property, "setSelectedTextRange") == 0) {
 		return NO;
 	}
 	if (strcmp(property, "makeHTMLOutputWindowKeyWindow") == 0) {
 		return NO;
 	}
+
 	return YES;
 }
 
@@ -551,7 +570,7 @@
  */
 - (NSString *)getShellEnvironmentForName:(NSString*)keyName
 {
-	return [[[NSApp delegate] shellEnvironmentForDocument:nil] objectForKey:keyName];
+	return [[SPAppDelegate shellEnvironmentForDocument:nil] objectForKey:keyName];
 }
 
 /**
@@ -579,10 +598,12 @@
 - (void)insertText:(NSString*)text
 {
 	id firstResponder = [[NSApp keyWindow] firstResponder];
-	if([firstResponder isKindOfClass:[NSTextView class]]) {
+
+	if ([firstResponder isKindOfClass:[NSTextView class]]) {
 		[firstResponder insertText:text];
 		return;
 	}
+
 	NSBeep();
 }
 
@@ -593,11 +614,13 @@
 - (void)setText:(NSString*)text
 {
 	id firstResponder = [[NSApp keyWindow] firstResponder];
-	if([firstResponder isKindOfClass:[NSTextView class]]) {
+
+	if ([firstResponder isKindOfClass:[NSTextView class]]) {
 		[firstResponder setSelectedRange:NSMakeRange(0, [[firstResponder string] length])];
 		[firstResponder insertText:text];
 		return;
 	}
+
 	NSBeep();
 }
 
@@ -608,13 +631,15 @@
 - (void)setSelectedTextRange:(NSString*)range
 {
 	id firstResponder = [[NSApp keyWindow] firstResponder];
-	if([firstResponder isKindOfClass:[NSTextView class]]) {
+
+	if ([firstResponder isKindOfClass:[NSTextView class]]) {
 		NSRange theRange = NSIntersectionRange(NSRangeFromString(range), NSMakeRange(0, [[firstResponder string] length]));
 		if(theRange.location != NSNotFound) {
 			[firstResponder setSelectedRange:theRange];
 		}
 		return;
 	}
+
 	NSBeep();
 }
 
@@ -633,7 +658,6 @@
  */
 - (NSString *)run:(id)call
 {
-
 	NSError *err = nil;
 	NSString *command = nil;
 	NSString *uuid = nil;
@@ -666,7 +690,7 @@
 		output = [SPBundleCommandRunner runBashCommand:command withEnvironment:nil atCurrentDirectoryPath:nil error:&err];
 	else {
 		NSMutableDictionary *theEnv = [NSMutableDictionary dictionary];
-		[theEnv addEntriesFromDictionary:[[NSApp delegate] shellEnvironmentForDocument:nil]];
+		[theEnv addEntriesFromDictionary:[SPAppDelegate shellEnvironmentForDocument:nil]];
 		[theEnv setObject:uuid forKey:SPBundleShellVariableProcessID];
 		[theEnv setObject:[NSString stringWithFormat:@"%@%@", SPURLSchemeQueryInputPathHeader, uuid] forKey:SPBundleShellVariableQueryFile];
 		[theEnv setObject:[NSString stringWithFormat:@"%@%@", SPURLSchemeQueryResultPathHeader, uuid] forKey:SPBundleShellVariableQueryResultFile];
@@ -676,7 +700,7 @@
 		output = [SPBundleCommandRunner runBashCommand:command 
 									   withEnvironment:theEnv 
 								atCurrentDirectoryPath:nil 
-										callerInstance:[NSApp delegate] 
+										callerInstance:SPAppDelegate
 										   contextInfo:[NSDictionary dictionaryWithObjectsAndKeys:
 														@"JavaScript", @"name",
 														NSLocalizedString(@"General", @"general menu item label"), @"scope",
@@ -703,21 +727,22 @@
 		NSBeep();
 		return @"";
 	}
-
 }
 
 #pragma mark -
-#pragma mark multi-touch trackpad support
+#pragma mark Multi-touch trackpad support
 
 /**
  * Trackpad two-finger zooming gesture for in/decreasing the font size
  */
 - (void)magnifyWithEvent:(NSEvent *)anEvent
 {
-	if([anEvent deltaZ]>2.0)
+	if ([anEvent deltaZ] > 2.0) {
 		[webView makeTextLarger:nil];
-	else if([anEvent deltaZ]<-2.0)
+	}
+	else if ([anEvent deltaZ] < -2.0) {
 		[webView makeTextSmaller:nil];
+	}
 }
 
 @end

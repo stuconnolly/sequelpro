@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMySQLConnection_PrivateAPI.h
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 /**
  * A collection of Private APIs from the various categories, to simplify
@@ -84,8 +82,10 @@
 @interface SPMySQLConnection (Querying_and_Preparation_Private_API)
 
 - (void)_flushMultipleResultSets;
+- (void)_updateLastErrorInfos;
 - (void)_updateLastErrorMessage:(NSString *)theErrorMessage;
 - (void)_updateLastErrorID:(NSUInteger)theErrorID;
+- (void)_updateLastSqlstate:(NSString *)theSqlstate;
 
 @end
 
@@ -94,17 +94,13 @@
 @interface SPMySQLResult (Private_API)
 
 - (NSString *)_stringWithBytes:(const void *)bytes length:(NSUInteger)length;
+- (NSString *)_lossyStringWithBytes:(const void *)bytes length:(NSUInteger)length wasLossy:(BOOL *)outLossy;
 - (void)_setQueryExecutionTime:(double)theExecutionTime;
 
 @end
 
 // SPMySQLResult Data Conversion Private API
-@interface SPMySQLResult (Data_Conversion_Private_API)
-
-+ (void)_initializeDataConversion;
-- (id)_getObjectFromBytes:(char *)bytes ofLength:(NSUInteger)length fieldDefinitionIndex:(NSUInteger)fieldIndex previewLength:(NSUInteger)previewLength;
-
-@end
+#import "Data Conversion.h"
 
 /**
  * Set up a static function to allow fast calling of SPMySQLResult data conversion with cached selectors

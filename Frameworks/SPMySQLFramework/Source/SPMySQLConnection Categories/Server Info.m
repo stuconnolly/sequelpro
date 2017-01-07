@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Server Info.m
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 
 #import "Server Info.h"
@@ -44,51 +42,38 @@
  */
 - (NSString *)serverVersionString
 {
-	if (serverVersionString) {
-		return [NSString stringWithString:serverVersionString];
+	if (serverVariableVersion) {
+		return [NSString stringWithString:serverVariableVersion];
 	}
 
 	return nil;
 }
 
 /**
- * Return the server major version or NSNotFound on failure
+ * Return the server major version or 0 on failure
  */
 - (NSUInteger)serverMajorVersion
 {
-	
-	if (serverVersionString != nil) {
-		NSString *s = [[serverVersionString componentsSeparatedByString:@"."] objectAtIndex:0];
-		return (NSUInteger)[s integerValue];
-	} 
-	
-	return NSNotFound;
+	// 5.5.33 => 50533 / 10'000 => 5.0533 => 5
+	return (serverVersionNumber / 10000);
 }
 
 /**
- * Return the server minor version or NSNotFound on failure
+ * Return the server minor version or 0 on failure
  */
 - (NSUInteger)serverMinorVersion
 {
-	if (serverVersionString != nil) {
-		NSString *s = [[serverVersionString componentsSeparatedByString:@"."] objectAtIndex:1];
-		return (NSUInteger)[s integerValue];
-	}
-	
-	return NSNotFound;
+	// 5.5.33 => 50533 - (5*10'000) => 533 / 100 => 5.33 => 5
+	return ((serverVersionNumber - [self serverMajorVersion]*10000) / 100);
 }
 
 /**
- * Return the server release version or NSNotFound on failure
+ * Return the server release version or 0 on failure
  */
 - (NSUInteger)serverReleaseVersion
 {
-	if (serverVersionString != nil) {
-		NSString *s = [[serverVersionString componentsSeparatedByString:@"."] objectAtIndex:2];
-		return (NSUInteger)[[[s componentsSeparatedByString:@"-"] objectAtIndex:0] integerValue];
-	}
-	
-	return NSNotFound;
+	// 5.5.33 => 50533 - (5*10'000 + 5*100) => 33
+	return (serverVersionNumber - ([self serverMajorVersion]*10000 + [self serverMinorVersion]*100));
 }
 
 #pragma mark -
@@ -100,22 +85,9 @@
  */
 - (BOOL)serverVersionIsGreaterThanOrEqualTo:(NSUInteger)aMajorVersion minorVersion:(NSUInteger)aMinorVersion releaseVersion:(NSUInteger)aReleaseVersion
 {
-	if (!serverVersionString) return NO;
+	unsigned long myver = aMajorVersion * 10000 + aMinorVersion * 100 + aReleaseVersion;
 
-	NSArray *serverVersionParts = [serverVersionString componentsSeparatedByString:@"."];
-
-	NSUInteger serverMajorVersion = (NSUInteger)[[serverVersionParts objectAtIndex:0] integerValue];
-	if (serverMajorVersion < aMajorVersion) return NO;
-	if (serverMajorVersion > aMajorVersion) return YES;
-
-	NSUInteger serverMinorVersion = (NSUInteger)[[serverVersionParts objectAtIndex:1] integerValue];
-	if (serverMinorVersion < aMinorVersion) return NO;
-	if (serverMinorVersion > aMinorVersion) return YES;
-
-	NSString *serverReleasePart = [serverVersionParts objectAtIndex:2];
-	NSUInteger serverReleaseVersion = (NSUInteger)[[[serverReleasePart componentsSeparatedByString:@"-"] objectAtIndex:0] integerValue];
-	if (serverReleaseVersion < aReleaseVersion) return NO;
-	return YES;
+	return (serverVersionNumber >= myver);
 }
 
 #pragma mark -
@@ -126,6 +98,9 @@
  * the resulting process list defaults to the short form; run a manual SHOW FULL PROCESSLIST
  * to retrieve tasks in non-truncated form.
  * Returns nil on error.
+ *
+ * WARNING: This method may return nil if the current thread is cancelled!
+ *          You MUST check the isCancelled flag before using the result!
  */
 - (SPMySQLResult *)listProcesses
 {
@@ -174,6 +149,23 @@
 
 	// Return a value based on whether the query errored or not
 	return ![self queryErrored];
+}
+
+- (BOOL)serverShutdown
+{
+	if([self _checkConnectionIfNecessary]) {
+		[self _lockConnection];
+		// Ensure per-thread variables are set up
+		[self _validateThreadSetup];
+		//only SHUTDOWN_DEFAULT is supported right now
+		int res = mysql_shutdown(mySQLConnection, SHUTDOWN_DEFAULT);
+		//update or clear error
+		[self _updateLastErrorInfos];
+		[self _unlockConnection];
+		
+		return (res == 0);
+	}
+	return NO;
 }
 
 @end

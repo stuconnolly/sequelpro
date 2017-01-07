@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPColorSelectorView.h
 //  sequel-pro
 //
@@ -40,7 +38,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 
 #import <Foundation/Foundation.h>
@@ -59,6 +57,8 @@
 	IBOutlet id delegate;
 	
 	NSArray *colorList;
+	
+	BOOL isOSAtLeast10_9_0;
 }
 
 @property (nonatomic,readwrite,assign) NSInteger selectedTag;

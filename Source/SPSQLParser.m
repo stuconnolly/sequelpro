@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPSQLParser.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPSQLParser.h"
 #import "RegexKitLite.h"
@@ -792,8 +790,7 @@ TO_BUFFER_STATE to_scan_string (const char *);
 										
 										// Drop back to standard non-delimiter mode if the delimiter has ended
 										if ([delimiter isEqualToString:[NSString stringWithFormat:@"%C", character]]) {
-											if (delimiter) [delimiter release];
-											delimiter = nil;
+											if (delimiter) SPClear(delimiter);
 											delimiterLengthMinusOne = 0;
 										}
 										
@@ -1023,7 +1020,7 @@ TO_BUFFER_STATE to_scan_string (const char *);
 }
 - (void) setString:(NSString *)aString {
 	[string setString:aString];
-	if (delimiter) [delimiter release], delimiter = nil;
+	if (delimiter) SPClear(delimiter);
 	delimiterLengthMinusOne = 0;
 	lastMatchIsDelimiter = NO;
 	[self _clearCharCache];
@@ -1041,8 +1038,8 @@ TO_BUFFER_STATE to_scan_string (const char *);
 	[self _clearCharCache];
 }
 - (void) dealloc {
-	[string release];
-	if (delimiter) [delimiter release];
+	SPClear(string);
+	if (delimiter) SPClear(delimiter);
 	if (charCacheEnd != -1) free(stringCharCache);
 	[super dealloc];
 }

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableData.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPDatabaseDocument;
 @class SPTablesList;
@@ -57,8 +55,8 @@
 }
 
 @property (readonly, assign) BOOL tableHasAutoIncrementField;
+@property (nonatomic, retain) SPMySQLConnection *connection;
 
-- (void) setConnection:(SPMySQLConnection *)theConnection;
 - (NSString *) tableEncoding;
 - (NSString *) tableCreateSyntax;
 - (NSArray *) columns;

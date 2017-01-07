@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableInfo.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTableInfo.h"
 #import "ImageAndTextCell.h"
@@ -37,6 +35,7 @@
 #import "SPTableData.h"
 #import "SPActivityTextFieldCell.h"
 #import "SPTableTextFieldCell.h"
+#import "SPAppController.h"
 
 @interface SPTableInfo (PrivateAPI)
 
@@ -79,7 +78,7 @@
 		object:nil];
 
 	// Add activities header
-	[activities addObject:[NSDictionary dictionaryWithObjectsAndKeys:NSLocalizedString(@"ACTIVITIES", @"header for activities pane"), @"name", nil]];
+	[activities addObject:@{@"name" : NSLocalizedString(@"ACTIVITIES", @"header for activities pane")}];
 	[activitiesTable reloadData];
 
 	// Add Information header
@@ -111,9 +110,9 @@
 	NSMutableArray *acts = [NSMutableArray array];
 	
 	[acts removeAllObjects];
-	[acts addObject:[NSDictionary dictionaryWithObjectsAndKeys:NSLocalizedString(@"ACTIVITIES", @"header for activities pane"), @"name", nil]];
+	[acts addObject:@{@"name" : NSLocalizedString(@"ACTIVITIES", @"header for activities pane")}];
 	[acts addObjectsFromArray:[tableDocumentInstance runningActivities]];
-	[acts addObjectsFromArray:[[NSApp delegate] runningActivities]];
+	[acts addObjectsFromArray:[SPAppDelegate runningActivities]];
 	
 	_activitiesWillBeUpdated = YES;
 	
@@ -171,7 +170,7 @@
 			if (![[tableStatus objectForKey:@"Create_time"] isNSNull]) {
 
 				// Add the creation date to the infoTable
-				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"created: %@", @"created: %@"), [self _getUserDefinedDateStringFromMySQLDate:[tableStatus objectForKey:@"Create_time"]]]];
+				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"created: %@", @"Table Info Section : time+date table was created at"), [self _getUserDefinedDateStringFromMySQLDate:[tableStatus objectForKey:@"Create_time"]]]];
 			}
 
 			// Check for 'Update_time' == NULL - InnoDB tables don't have an update time
@@ -188,15 +187,27 @@
 
 			// Check for 'Rows' == NULL - information_schema database doesn't report row count for it's tables
 			if (![[tableStatus objectForKey:@"Rows"] isNSNull]) {
-				[info addObject:[NSString stringWithFormat:[[tableStatus objectForKey:@"RowsCountAccurate"] boolValue] ? NSLocalizedString(@"rows: %@", @"rows: %@") : NSLocalizedString(@"rows: ~%@", @"rows: ~%@"),
+				[info addObject:[NSString stringWithFormat:[[tableStatus objectForKey:@"RowsCountAccurate"] boolValue] ? NSLocalizedString(@"rows: %@", @"Table Info Section : number of rows (exact value)") : NSLocalizedString(@"rows: ~%@", @"Table Info Section : number of rows (estimated value)"),
 					[numberFormatter stringFromNumber:[NSNumber numberWithLongLong:[[tableStatus objectForKey:@"Rows"] longLongValue]]]]];
 			}
-
-			[info addObject:[NSString stringWithFormat:NSLocalizedString(@"size: %@", @"size: %@"), [NSString stringForByteSize:[[tableStatus objectForKey:@"Data_length"] longLongValue]]]];
-			[info addObject:[NSString stringWithFormat:NSLocalizedString(@"encoding: %@", @"encoding: %@"), [tableDataInstance tableEncoding]]];
-
+			
+			// Check for 'Data_Length' == NULL (see PR #2606)
+			if([[tableStatus objectForKey:@"Data_length"] unboxNull]) {
+				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"size: %@", @"Table Info Section : table size on disk"), [NSString stringForByteSize:[[tableStatus objectForKey:@"Data_length"] longLongValue]]]];
+			}
+			NSString *tableEnc = [tableDataInstance tableEncoding];
+			NSString *tableColl = [tableStatus objectForKey:@"Collation"];
+			if([tableColl length]) {
+				// instead of @"latin1 (latin1_german_ci)" we can just show @"latin1 (german_ci)"
+				if([tableColl hasPrefix:[NSString stringWithFormat:@"%@_",tableEnc]]) tableColl = [tableColl substringFromIndex:([tableEnc length]+1)];
+				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"encoding: %1$@ (%2$@)", @"Table Info Section : $1 = table charset, $2 = table collation"), tableEnc, tableColl]];
+			}
+			else {
+				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"encoding: %1$@", @"Table Info Section : $1 = table charset"), tableEnc]];
+			}
+			
 			if (![[tableStatus objectForKey:@"Auto_increment"] isNSNull]) {
-				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"auto_increment: %@", @"auto_increment: %@"),
+				[info addObject:[NSString stringWithFormat:NSLocalizedString(@"auto_increment: %@", @"Table Info Section : current value of auto_increment"),
 					[numberFormatter stringFromNumber:[NSNumber numberWithLongLong:[[tableStatus objectForKey:@"Auto_increment"] longLongValue]]]]];
 			}
 
@@ -390,12 +401,12 @@
 	if (rowIndex > 0) return NO;
 
 	if (![tableInfoScrollView isHidden]) {
-		[tableDocumentInstance setActivityPaneHidden:[NSNumber numberWithInteger:0]];
-		[[NSApp mainWindow] makeFirstResponder:activitiesTable];
+		[tableDocumentInstance setActivityPaneHidden:@0];
+		[[activitiesTable window] makeFirstResponder:activitiesTable];
 	} 
 	else {
-		[tableDocumentInstance setActivityPaneHidden:[NSNumber numberWithInteger:1]];
-		[[NSApp mainWindow] makeFirstResponder:infoTable];
+		[tableDocumentInstance setActivityPaneHidden:@1];
+		[[infoTable window] makeFirstResponder:infoTable];
 	}
 
 	[infoTable deselectAll:nil];
@@ -471,8 +482,8 @@
 {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	
-	[info release];
-	[activities release];
+	SPClear(info);
+	SPClear(activities);
 	
 	[super dealloc];
 }

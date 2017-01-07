@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Delegate & Proxy.m
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "Delegate & Proxy.h"
 #import "SPMySQL Private APIs.h"
@@ -113,7 +111,7 @@
 		// Trigger a reconnect depending on connection usage recently.  If the connection has
 		// actively been used in the last couple of minutes, trigger a full reconnection attempt.
 		if (_elapsedSecondsSinceAbsoluteTime(lastConnectionUsedTime) < 60 * 2) {
-			reconnectionThread = [[[NSThread alloc] initWithTarget:self selector:@selector(_reconnectAllowingRetries:) object:[NSNumber numberWithBool:YES]] autorelease];
+			reconnectionThread = [[[NSThread alloc] initWithTarget:self selector:@selector(_reconnectAllowingRetries:) object:@YES] autorelease];
 			[reconnectionThread setName:@"SPMySQL reconnection thread (full)"];
 			[reconnectionThread start];
 

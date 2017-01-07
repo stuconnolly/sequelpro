@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Data Conversion.h
 //  SPMySQLFramework
 //
@@ -28,16 +26,11 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @interface SPMySQLResult (Data_Conversion_Private_API)
 
++ (void)_initializeDataConversion;
 - (id)_getObjectFromBytes:(char *)bytes ofLength:(NSUInteger)length fieldDefinitionIndex:(NSUInteger)fieldIndex previewLength:(NSUInteger)previewLength;
-
-static inline SPMySQLResultFieldProcessor _processorForField(MYSQL_FIELD aField);
-
-static inline NSString * _stringWithBytes(const void *dataBytes, NSUInteger dataLength, NSStringEncoding aStringEncoding, NSUInteger previewLength);
-static inline NSString * _bitStringWithBytes(const char *bytes, NSUInteger length, NSUInteger padLength);
-static inline NSString * _convertStringData(const void *dataBytes, NSUInteger dataLength, NSStringEncoding aStringEncoding, NSUInteger previewLength);
 
 @end

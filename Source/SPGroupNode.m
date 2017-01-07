@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPGroupNode.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPGroupNode.h"
 
@@ -63,9 +61,23 @@ static NSString *SPGroupNodeIsExpandedKey = @"SPGroupNodeIsExpanded";
 	return self;
 }
 
+- (id)initWithDictionary:(NSDictionary *)dict
+{
+	if ((self = [self initWithName:[dict objectForKey:SPFavoritesGroupNameKey]])) {
+		[self setNodeIsExpanded:[(NSNumber *)[dict objectForKey:SPFavoritesGroupIsExpandedKey] boolValue]];
+	}
+	
+	return self;
+}
+
 + (SPGroupNode *)groupNodeWithName:(NSString *)name
 {
 	return [[[self alloc] initWithName:name] autorelease];
+}
+
++ (SPGroupNode *)groupNodeWithDictionary:(NSDictionary *)dict
+{
+	return [[[self alloc] initWithDictionary:dict] autorelease];
 }
 
 #pragma mark -
@@ -86,6 +98,10 @@ static NSString *SPGroupNodeIsExpandedKey = @"SPGroupNodeIsExpanded";
 
 - (id)initWithCoder:(NSCoder *)coder
 {
+	if (!(self = [super init])) {
+		return nil;
+	}
+	
 	[self setNodeName:[coder decodeObjectForKey:SPGroupNodeNameKey]];
 	[self setNodeIsExpanded:[[coder decodeObjectForKey:SPGroupNodeIsExpandedKey] boolValue]];
 	
@@ -110,7 +126,7 @@ static NSString *SPGroupNodeIsExpandedKey = @"SPGroupNodeIsExpanded";
 
 - (void)dealloc
 {
-	if (nodeName) [nodeName release], nodeName = nil;
+	if (nodeName) SPClear(nodeName);
 	
 	[super dealloc];
 }

@@ -1,8 +1,6 @@
 #! /usr/bin/perl
 
 #
-#  $Id$
-#
 #  create-test-stubs.pl
 #  sequel-pro
 #
@@ -30,7 +28,7 @@
 #  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 #  OTHER DEALINGS IN THE SOFTWARE.
 #
-#  More info at <http://code.google.com/p/sequel-pro/>
+#  More info at <https://github.com/sequelpro/sequelpro>
 
 use strict;
 use warnings;
@@ -39,7 +37,7 @@ use Carp;
 use Getopt::Long;
 
 use constant PROJECT_NAME => 'sequel-pro';
-use constant PROJECT_URL  => 'http://code.google.com/p/sequel-pro/';
+use constant PROJECT_URL  => 'https://github.com/sequelpro/sequelpro';
 
 #
 # Print this script's usage.
@@ -80,9 +78,7 @@ sub write_header_to_file
 	
 	$filename = ($is_header) ? "${filename}.h" : "${filename}.m";
 	
-	my $content = << "EOF";
-//
-//  \$Id\$  
+	my $content = << "EOF"; 
 //
 //  $filename
 //  $project

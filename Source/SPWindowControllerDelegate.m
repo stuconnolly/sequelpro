@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPWindowControllerDelegate.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPWindowControllerDelegate.h"
 #import "PSMTabDragAssistant.h"
@@ -42,7 +40,7 @@
 @interface SPWindowController (SPDeclaredAPI)
 
 - (void)_updateProgressIndicatorForItem:(NSTabViewItem *)theItem;
-- (void)_updateLineHidingViewState;
+- (void)_switchOutSelectedTableDocument:(SPDatabaseDocument *)newDoc;
 
 @end
 
@@ -70,9 +68,9 @@
 	}
 	
 	// Remove global session data if the last window of a session will be closed
-	if ([[NSApp delegate] sessionURL] && [[[NSApp delegate] orderedDatabaseConnectionWindows] count] == 1) {
-		[[NSApp delegate] setSessionURL:nil];
-		[[NSApp delegate] setSpfSessionDocData:nil];
+	if ([SPAppDelegate sessionURL] && [[SPAppDelegate orderedDatabaseConnectionWindows] count] == 1) {
+		[SPAppDelegate setSessionURL:nil];
+		[SPAppDelegate setSpfSessionDocData:nil];
 	}
 	
 	return YES;
@@ -129,14 +127,10 @@
  */
 - (void)windowDidBecomeMain:(NSNotification *)notification
 {
-	[self _updateLineHidingViewState];
+	
 }
 - (void)windowDidResignMain:(NSNotification *)notification
 {
-	[self _updateLineHidingViewState];
-
-	// Update the state again after a short delay to catch attached sheets being main
-	[self performSelector:@selector(_updateLineHidingViewState) withObject:nil afterDelay:0.1];
 }
 
 /**
@@ -158,7 +152,6 @@
 - (void)windowWillEnterFullScreen:(NSNotification *)notification
 {
 	[selectedTableDocument updateTitlebarStatusVisibilityForcingHide:YES];
-	[self _updateLineHidingViewState];
 }
 
 /**
@@ -167,7 +160,6 @@
 - (void)windowDidExitFullScreen:(NSNotification *)notification
 {
 	[selectedTableDocument updateTitlebarStatusVisibilityForcingHide:NO];
-	[self _updateLineHidingViewState];
 }
 
 #pragma mark -
@@ -188,7 +180,7 @@
 {
 	if ([[PSMTabDragAssistant sharedDragAssistant] isDragging]) return;
 	
-	selectedTableDocument = [tabViewItem identifier];
+	[self _switchOutSelectedTableDocument:[tabViewItem identifier]];
 	[selectedTableDocument didBecomeActiveTabInWindow];
 
 	if ([[self window] isKeyWindow]) [selectedTableDocument tabDidBecomeKey];
@@ -386,6 +378,7 @@
 	// Capture an image of the entire window
 	CGImageRef windowImage = CGWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, (unsigned int)[[self window] windowNumber], kCGWindowImageBoundsIgnoreFraming);
 	NSBitmapImageRep *viewRep = [[NSBitmapImageRep alloc] initWithCGImage:windowImage];
+	[viewRep setSize:[[self window] frame].size];
 	[viewImage addRepresentation:viewRep];
 	[viewRep release];
 	

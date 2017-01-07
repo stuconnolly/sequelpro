@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPIndexesController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPIndexesController.h"
 #import "SPAlertSheets.h"
@@ -134,17 +132,19 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 	BOOL useMonospacedFont = NO;
 #endif
 
+	CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
 	// Set the double-click action in blank areas of the table to create new rows
 	[indexesTableView setEmptyDoubleClickAction:@selector(addIndex:)];
 
 	for (NSTableColumn *indexColumn in [indexesTableView tableColumns])
 	{
-		[[indexColumn dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+		[[indexColumn dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 	}
 
 	for (NSTableColumn *fieldColumn in [indexedColumnsTableView tableColumns])
 	{
-		[[fieldColumn dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+		[[fieldColumn dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 	}
 
 #ifndef SP_CODA /* patch */
@@ -166,7 +166,8 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 	// Check whether a save of the current field row is required.
 	if (![tableStructure saveRowOnDeselect]) return;
 
-	isMyISAMTale = [[[tableData statusValues] objectForKey:@"Engine"] isEqualToString:@"MyISAM"];
+	isMyISAMTable = [[tableData statusValueForKey:@"Engine"] isEqualToString:@"MyISAM"];
+	isInnoDBTable = [[tableData statusValueForKey:@"Engine"] isEqualToString:@"InnoDB"];
 	
 	// Reset visibility of the primary key item
 	[[[indexTypePopUpButton menu] itemWithTag:SPPrimaryKeyMenuTag] setHidden:NO];
@@ -219,7 +220,7 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 	// If no initial field has been selected yet - all fields are indexed - add the first field.
 	if (!initialField) initialField = [fields objectAtIndex:0];
 	
-	if (indexedFieldNames) [indexedFieldNames release], indexedFieldNames = nil;
+	if (indexedFieldNames) SPClear(indexedFieldNames);
 
 	// Reset the indexed columns
 	[indexedFields removeAllObjects];
@@ -236,7 +237,7 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 #ifndef SP_CODA
 	// MyISAM and InnoDB tables only support BTREE storage types so disable the storage type popup button
 	// as it's the default anyway.
-	[indexStorageTypePopUpButton setEnabled:(!(isMyISAMTale || [[[tableData statusValues] objectForKey:@"Engine"] isEqualToString:@"InnoDB"]))];
+	[indexStorageTypePopUpButton setEnabled:(!(isMyISAMTable || isInnoDBTable))];
 
 	// The ability to specify an index's key block size was added in MySQL 5.1.10 so disable the textfield
 	// if it's not supported.
@@ -328,10 +329,8 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 		}
 		
 #ifndef SP_CODA
-		NSString *engine = [[tableData statusValues] objectForKey:@"Engine"];
-		
 		// Specifiying an index storage type (i.e. HASH or BTREE) is not permitted with SPATIAL indexes
-		[indexStorageTypePopUpButton setEnabled:(indexType != SPSpatialMenuTag) && !(isMyISAMTale || [engine isEqualToString:@"InnoDB"])];
+		[indexStorageTypePopUpButton setEnabled:(indexType != SPSpatialMenuTag) && !(isMyISAMTable || isInnoDBTable)];
 #endif
 	}
 	
@@ -658,7 +657,7 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 #endif
 
 		if ([NSThread isMainThread]) {
-			[NSThread detachNewThreadWithName:@"SPIndexesController index creation thread" target:self selector:@selector(_addIndexUsingDetails:) object:indexDetails];
+			[NSThread detachNewThreadWithName:SPCtxt(@"SPIndexesController index creation thread", dbDocument) target:self selector:@selector(_addIndexUsingDetails:) object:indexDetails];
 
 			[dbDocument enableTaskCancellationWithTitle:NSLocalizedString(@"Cancel", @"cancel button") callbackObject:self callbackFunction:NULL];
 		}
@@ -686,7 +685,7 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 		[indexDetails setObject:[NSNumber numberWithBool:[(NSString *)contextInfo hasSuffix:@"AndForeignKey"]] forKey:@"RemoveForeignKey"];
 
 		if ([NSThread isMainThread]) {
-			[NSThread detachNewThreadWithName:@"SPIndexesController index removal thread" target:self selector:@selector(_removeIndexUsingDetails:) object:indexDetails];
+			[NSThread detachNewThreadWithName:SPCtxt(@"SPIndexesController index removal thread", dbDocument) target:self selector:@selector(_removeIndexUsingDetails:) object:indexDetails];
 
 			[dbDocument enableTaskCancellationWithTitle:NSLocalizedString(@"Cancel", @"cancel button") callbackObject:self callbackFunction:NULL];
 		}
@@ -709,18 +708,20 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 	else if ([keyPath isEqualToString:SPUseMonospacedFonts]) {
 
 		BOOL useMonospacedFont = [[change objectForKey:NSKeyValueChangeNewKey] boolValue];
+		CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
 
 		for (NSTableColumn *indexColumn in [indexesTableView tableColumns])
 		{
-			[[indexColumn dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+			[[indexColumn dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 		}
 
 		for (NSTableColumn *indexColumn in [indexedColumnsTableView tableColumns])
 		{
-			[[indexColumn dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+			[[indexColumn dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 		}
 
 		[indexesTableView reloadData];
+
 		[self _reloadIndexedColumnsTableData];
 	}
 }
@@ -766,8 +767,8 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 		[indexTypePopUpButton removeItemAtIndex:[indexTypePopUpButton indexOfItemWithTag:SPFullTextMenuTag]];
 	}
 	
-	// FULLTEXT and SPATIAL index types are only available using the MyISAM engine
-	if (isMyISAMTale) {
+	// SPATIAL index types are only available using the MyISAM engine
+	if (isMyISAMTable) {
 		if ([[dbDocument serverSupport] supportsSpatialExtensions]) {
 			NSMenuItem *spatialMenuItem = [[[NSMenuItem alloc] init] autorelease];
 			
@@ -776,7 +777,10 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 			
 			[[indexTypePopUpButton menu] addItem:spatialMenuItem];
 		}
+	}
 	
+	// FULLTEXT only works with MyISAM and (InnoDB since 5.6.4)
+	if(isMyISAMTable || (isInnoDBTable && [[dbDocument serverSupport] supportsFulltextOnInnoDB])) {
 		NSMenuItem *fullTextMenuItem = [[[NSMenuItem alloc] init] autorelease];
 		
 		[fullTextMenuItem setTitle:NSLocalizedString(@"FULLTEXT", @"full text index menu item title")];
@@ -905,8 +909,11 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 
 		// Check for errors, but only if the query wasn't cancelled
 		if ([connection queryErrored] && ![connection lastQueryWasCancelled]) {
-			SPBeginAlertSheet(NSLocalizedString(@"Unable to add index", @"add index error message"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [dbDocument parentWindow], self, nil, nil,
-							  [NSString stringWithFormat:NSLocalizedString(@"An error occured while trying to add the index.\n\nMySQL said: %@", @"add index error informative message"), [connection lastErrorMessage]]);
+			SPOnewayAlertSheet(
+				NSLocalizedString(@"Unable to add index", @"add index error message"),
+				[dbDocument parentWindow],
+				[NSString stringWithFormat:NSLocalizedString(@"An error occured while trying to add the index.\n\nMySQL said: %@", @"add index error informative message"), [connection lastErrorMessage]]
+			);
 		}
 		else {
 			[tableData resetAllData];
@@ -1079,14 +1086,14 @@ static const NSString *SPNewIndexKeyBlockSize   = @"IndexKeyBlockSize";
 
 - (void)dealloc
 {
-	[table release], table = nil;
-	[indexes release], indexes = nil;
-	[fields release], fields = nil;
+	SPClear(table);
+	SPClear(indexes);
+	SPClear(fields);
 
-	[supportsLength release], supportsLength = nil;
-	[requiresLength release], requiresLength = nil;
+	SPClear(supportsLength);
+	SPClear(requiresLength);
 
-	if (indexedFields) [indexedFields release], indexedFields = nil;
+	if (indexedFields) SPClear(indexedFields);
 
 #ifndef SP_CODA
 	[prefs removeObserver:self forKeyPath:SPDisplayTableViewVerticalGridlines];

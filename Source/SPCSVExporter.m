@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPCSVExporter.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPCSVExporter.h"
 #import "SPFileHandle.h"
@@ -70,13 +68,10 @@
 }
 
 /**
- * Start the CSV export process. This method is automatically called when an instance of this class
- * is placed on an NSOperationQueue. Do not call it directly as there is no manual multithreading.
+ * Start the CSV export process.
  */
-- (void)main
-{		
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	
+- (void)exportOperation
+{
 	NSMutableString *csvString     = [NSMutableString string];
 	NSMutableString *csvCellString = [NSMutableString string];
 	
@@ -98,7 +93,6 @@
 	if ((![self csvTableName] && ![self csvDataArray]) ||
 		([[self csvTableName] isEqualToString:@""] && [[self csvDataArray] count] == 0))
 	{
-		[pool release];
 		return;
 	}
 	
@@ -107,7 +101,6 @@
 		(![self csvEscapeString]) ||
 		(![self csvLineEndingString]))
 	{
-		[pool release];
 		return;
 	}
 		 
@@ -116,7 +109,6 @@
 		([[self csvEscapeString] isEqualToString:@""]) ||
 		([[self csvLineEndingString] isEqualToString:@""])) 
 	{
-		[pool release];
 		return;
 	}
 					
@@ -235,12 +227,12 @@
 			}
 			
 			[csvExportPool release];
-			[pool release];
-			
+
 			return;
 		}
 		
 		// Retrieve the next row from the supplied data, either directly from the array...
+		BOOL forceNonNumericRow = NO;
 		if ([self csvDataArray]) {
 			csvRow = NSArrayObjectAtIndex([self csvDataArray], currentRowIndex);
 		} 
@@ -250,6 +242,7 @@
 			if ([self csvOutputFieldNames]) {
 				csvRow = [streamingResult fieldNames];
 				[self setCsvOutputFieldNames:NO];
+				forceNonNumericRow = YES;
 			} 
 			else {
 				csvRow = [streamingResult getRowAsArray];
@@ -268,8 +261,7 @@
 			// Check for cancellation flag
 			if ([self isCancelled]) {
 				[csvExportPool release];
-				[pool release];
-				
+
 				return;
 			}
 			
@@ -308,8 +300,12 @@
 				[csvString appendString:[self csvEnclosingCharacterString]];
 			}
 			else {
+				// is this the header row?
+				if (forceNonNumericRow) {
+					csvCellIsNumeric = NO;
+				}
 				// If an array of bools supplying information as to whether the column is numeric has been supplied, use it.
-				if ([tableColumnNumericStatus count] > 0) {
+				else if ([tableColumnNumericStatus count] > 0) {
 					csvCellIsNumeric = [NSArrayObjectAtIndex(tableColumnNumericStatus, i) boolValue];
 				} 
 				// Otherwise, first test whether this cell contains data
@@ -373,7 +369,7 @@
 		currentPoolDataLength += [csvString length];
 		
 		// Write it to the fileHandle
-		[[self exportOutputFile] writeData:[csvString dataUsingEncoding:[self exportOutputEncoding]]];
+		[self writeString:csvString];
 		
 		currentRowIndex++;
 		
@@ -410,22 +406,21 @@
 	[delegate performSelectorOnMainThread:@selector(csvExportProcessComplete:) withObject:self waitUntilDone:NO];
 	
 	[csvExportPool release];
-	[pool release];
 }
 
 #pragma mark -
 
 - (void)dealloc
 {
-	if (csvDataArray) [csvDataArray release], csvDataArray = nil;
-	if (csvTableName) [csvTableName release], csvTableName = nil;
+	if (csvDataArray) SPClear(csvDataArray);
+	if (csvTableName) SPClear(csvTableName);
 	
-	[csvFieldSeparatorString release], csvFieldSeparatorString = nil;
-	[csvEnclosingCharacterString release], csvEnclosingCharacterString = nil;
-	[csvEscapeString release], csvEscapeString = nil;
-	[csvLineEndingString release], csvLineEndingString = nil;
-	[csvNULLString release], csvNULLString = nil;
-	[csvTableData release], csvTableData = nil;
+	SPClear(csvFieldSeparatorString);
+	SPClear(csvEnclosingCharacterString);
+	SPClear(csvEscapeString);
+	SPClear(csvLineEndingString);
+	SPClear(csvNULLString);
+	SPClear(csvTableData);
 	
 	[super dealloc];
 }

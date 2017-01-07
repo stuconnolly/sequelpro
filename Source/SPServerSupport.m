@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPServerSupport.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPServerSupport.h"
 
@@ -71,12 +69,15 @@
 @synthesize supportsArchiveStorageEngine;
 @synthesize supportsCSVStorageEngine;
 @synthesize supportsTriggers;
+@synthesize supportsEvents;
 @synthesize supportsIndexKeyBlockSize;
 @synthesize supportsQuotingEngineTypeInCreateSyntax;
 @synthesize supportsFractionalSeconds;
 @synthesize serverMajorVersion;
 @synthesize serverMinorVersion;
 @synthesize serverReleaseVersion;
+@synthesize supportsFulltextOnInnoDB;
+@synthesize supportsShowEngine;
 
 #pragma mark -
 #pragma mark Initialisation
@@ -94,7 +95,6 @@
 - (id)initWithMajorVersion:(NSInteger)majorVersion minor:(NSInteger)minorVersion release:(NSInteger)releaseVersion
 {
 	if ((self = [super init])) {
-		
 		serverMajorVersion   = majorVersion;
 		serverMinorVersion   = minorVersion;
 		serverReleaseVersion = releaseVersion;
@@ -187,6 +187,9 @@
 	
 	// Support for triggers wasn't added until MySQL 5.0.2
 	supportsTriggers = [self isEqualToOrGreaterThanMajorVersion:5 minor:0 release:2];
+
+	// Support for events wasn't added until MySQL 5.1.6
+	supportsEvents = [self isEqualToOrGreaterThanMajorVersion:5 minor:1 release:6];
 	
 	// Support for specifying an index's key block size wasn't added until MySQL 5.1.10
 	supportsIndexKeyBlockSize = [self isEqualToOrGreaterThanMajorVersion:5 minor:1 release:10];
@@ -196,6 +199,29 @@
 	
 	// Fractional second support wasn't added until MySQL 5.6.4
 	supportsFractionalSeconds = [self isEqualToOrGreaterThanMajorVersion:5 minor:6 release:4];
+	supportsFulltextOnInnoDB  = supportsFractionalSeconds; //introduced in 5.6.4 too
+	
+	// The SHOW ENGINE query wasn't added until MySQL 4.1.2
+	supportsShowEngine = [self isEqualToOrGreaterThanMajorVersion:4 minor:1 release:2];
+}
+
+- (SPInnoDBStatusQueryFormat)innoDBStatusQuery
+{
+	SPInnoDBStatusQueryFormat tuple = {nil,0};
+	
+	//if we have SHOW ENGINE go with that
+	if(supportsShowEngine) {
+		tuple.queryString = @"SHOW ENGINE INNODB STATUS";
+		tuple.columnIndex = 2;
+	}
+	//up to mysql 5.5 we could also use the old SHOW INNODB STATUS
+	if([self isEqualToOrGreaterThanMajorVersion:3 minor:23 release:52] &&
+	   ![self isEqualToOrGreaterThanMajorVersion:5 minor:5 release:0]) {
+		tuple.queryString = @"SHOW INNODB STATUS";
+		tuple.columnIndex = 0;
+	}
+	
+	return tuple;
 }
 
 /**
@@ -282,9 +308,12 @@
 	supportsArchiveStorageEngine            = NO;
 	supportsCSVStorageEngine                = NO;
 	supportsTriggers                        = NO;
+	supportsEvents                          = NO;
 	supportsIndexKeyBlockSize               = NO;
 	supportsQuotingEngineTypeInCreateSyntax = NO;
 	supportsFractionalSeconds               = NO;
+	supportsFulltextOnInnoDB                = NO;
+	supportsShowEngine                      = NO;
 }
 
 /**
@@ -333,9 +362,9 @@
 - (void)dealloc
 {
 	// Reset version integers
-	serverMajorVersion   = -1;
-	serverMinorVersion   = -1;
-	serverReleaseVersion = -1;
+	serverMajorVersion   = 0;
+	serverMinorVersion   = 0;
+	serverReleaseVersion = 0;
 	
 	// Invalidate all ivars
 	[self _invalidate];

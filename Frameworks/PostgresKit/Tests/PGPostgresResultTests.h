@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  PGPostgresResultTests.h
 //  PostgresKit
 //
@@ -29,7 +27,7 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 
 #import <PostgresKit/PostgresKit.h>
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 #import "PGPostgresIntegrationTestCase.h"
 

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPChooseMenuItemDialog.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPChooseMenuItemDialog.h"
 
@@ -150,7 +148,7 @@
 	        clickCount:1
 	        pressure:0.0f];
 
-	[[NSApplication sharedApplication] sendEvent:theEvent];
+	[NSApp sendEvent:theEvent];
 
 	while ([dialog waitForChoice] && [[[NSApp keyWindow] firstResponder] isKindOfClass:[SPChooseMenuItemDialogTextView class]]) 
 	{
@@ -176,7 +174,7 @@
 
 - (void)dealloc
 {
-	[dummyTextView release];
+	SPClear(dummyTextView);
 	
 	[super dealloc];
 }

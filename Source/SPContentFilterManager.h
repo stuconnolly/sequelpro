@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPContentFilterManager.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPDatabaseDocument;
 @class SPSplitView;
@@ -62,7 +60,7 @@
 	IBOutlet id resultingClauseLabel;
 	IBOutlet id resultingClauseContentLabel;
 	IBOutlet id insertPlaceholderButton;
-	IBOutlet NSButton *suppressLeadingFiledPlaceholderCheckbox;
+	IBOutlet NSButton *suppressLeadingFieldPlaceholderCheckbox;
 
 	IBOutlet id contentFilterArrayController;
 	
@@ -87,6 +85,6 @@
 - (IBAction)exportContentFilter:(id)sender;
 - (IBAction)importContentFilterByAdding:(id)sender;
 - (IBAction)closeContentFilterManagerSheet:(id)sender;
-- (IBAction)suppressLeadingFiledPlaceholderWasChanged:(id)sender;
+- (IBAction)suppressLeadingFieldPlaceholderWasChanged:(id)sender;
 
 @end

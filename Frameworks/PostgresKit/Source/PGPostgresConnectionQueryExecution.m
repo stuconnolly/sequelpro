@@ -31,6 +31,8 @@
 #import "PGPostgresStatement.h"
 #import "PGPostgresError.h"
 
+#pragma clang diagnostic ignored "-Wobjc-protocol-method-implementation"
+
 // Constants
 static int PGPostgresResultsAsBinary = 1;
 
@@ -219,7 +221,11 @@ PGQueryParamData;
 		if (![statement name]) {
 			BOOL prepareResult = [self _prepare:statement num:paramData->paramNum types:paramData->paramTypes];
 			
-			if (!prepareResult || ![statement name]) return nil;
+			if (!prepareResult || ![statement name]) {
+				[self _destroyParamDataStructure:paramData];
+
+				return nil;
+			}
 		}
 		
 		pgResult = PQexecPrepared(_connection, 

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPImageView.m
 //  sequel-pro
 //
@@ -29,7 +27,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPImageView.h"
 
@@ -74,7 +72,7 @@
 		NSData *pngData = nil;
 		NSBitmapImageRep *draggedImage = [[NSBitmapImageRep alloc] initWithData:[[sender draggingPasteboard] dataForType:@"NSTIFFPboardType"]];
 		if (draggedImage) {
-			pngData = [draggedImage representationUsingType:NSPNGFileType properties:nil];
+			pngData = [draggedImage representationUsingType:NSPNGFileType properties:@{}];
 			[draggedImage release];
 		}
 		if (pngData) {
@@ -93,7 +91,7 @@
 			[draggedImage drawInRect:[draggedImage boundingBox]];
 			NSBitmapImageRep *bitmapImageRep = [[NSBitmapImageRep alloc] initWithFocusedViewRect:[draggedImage boundingBox]];
 			if (bitmapImageRep) {
-				pngData = [bitmapImageRep representationUsingType:NSPNGFileType properties:nil];
+				pngData = [bitmapImageRep representationUsingType:NSPNGFileType properties:@{}];
 				[bitmapImageRep release];
 			}
 			[convertImage unlockFocus];

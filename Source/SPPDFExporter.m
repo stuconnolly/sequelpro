@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPPDFExporter.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPDFExporter.h"
 #import "SPExportUtilities.h"
@@ -53,17 +51,6 @@
 	}
 	
 	return self;
-}
-
-/**
- * Start the PDF export process. This method is automatically called when an instance of this class
- * is placed on an NSOperationQueue. Do not call it directly as there is no manual multithreading.
- */
-- (void)main
-{
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	
-	[pool release];
 }
 
 @end

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMySQLStringAdditions.h
 //  SPMySQLFramework
 //
@@ -28,12 +26,13 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 
 @interface NSString (SPMySQLStringAdditions)
 
 - (NSString *)mySQLBacktickQuotedString;
 - (NSString *)mySQLTickQuotedString;
++ (NSString *)stringForDataBytes:(const void *)dataBytes length:(NSUInteger)dataLength encoding:(NSStringEncoding)aStringEncoding;
 
 @end

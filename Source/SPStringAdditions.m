@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPStringAdditions.m
 //  sequel-pro
 //
@@ -28,16 +26,13 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPStringAdditions.h"
 #import "RegexKitLite.h"
+#include <stdlib.h>
 
-@interface NSString (PrivateAPI)
-
-- (NSInteger)_smallestOf:(NSInteger)a andOf:(NSInteger)b andOf:(NSInteger)c;
-
-@end
+static NSInteger _smallestOf(NSInteger a, NSInteger b, NSInteger c);
 
 @implementation NSString (SPStringAdditions)
 
@@ -204,7 +199,11 @@
 		}
 	}
 
-	return [NSString stringWithString:holder];
+	NSString *result = [NSString stringWithString:holder];
+
+	[holder release];
+
+	return result;
 }
 
 /**
@@ -324,7 +323,7 @@
 	NSMutableArray *lineRangesArray = [NSMutableArray array];
 
 	// Check that the range supplied is valid - if not return an empty array.
-	if (aRange.location == NSNotFound || aRange.location + aRange.length > [self length]) {
+	if (aRange.location == NSNotFound || NSMaxRange(aRange) > [self length]) {
 		return lineRangesArray;
 	}
 
@@ -334,15 +333,53 @@
 	[lineRangesArray addObject:NSStringFromRange(currentLineRange)];
 
 	// Loop through until the line end matches or surpasses the end of the specified range
-	while (currentLineRange.location + currentLineRange.length < aRange.location + aRange.length) 
+	while (NSMaxRange(currentLineRange) < NSMaxRange(aRange))
 	{
-		currentLineRange = [self lineRangeForRange:NSMakeRange(currentLineRange.location + currentLineRange.length, 0)];
+		currentLineRange = [self lineRangeForRange:NSMakeRange(NSMaxRange(currentLineRange), 0)];
 		
 		[lineRangesArray addObject:NSStringFromRange(currentLineRange)];
 	}
 
 	// Return the constructed array of ranges
 	return lineRangesArray;
+}
+
+- (NSString *)stringByReplacingCharactersInSet:(NSCharacterSet *)set withString:(NSString *)string
+{
+	NSUInteger len = [self length];
+	NSMutableString *newString = [NSMutableString string];
+	
+	NSRange range = NSMakeRange (0, len);
+	
+	while (true) {
+		NSRange substringRange;
+		NSUInteger pos = range.location;
+		BOOL endAfterInsert = NO;
+		
+		range = [self rangeOfCharacterFromSet:set options:0 range:range];
+		
+		if(range.location == NSNotFound) {
+			// insert the current substring up to the end
+			substringRange = NSMakeRange(pos, len - pos);
+			endAfterInsert = YES;
+		}
+		else {
+			// insert the current substring up to range.location
+			substringRange = NSMakeRange(pos, range.location - pos);
+		}
+		
+		[newString appendString:[self substringWithRange:substringRange]];
+		
+		if(endAfterInsert) break;
+		
+		// insert the replacement character
+		[newString appendStringOrNil:string];
+		
+		// continue after the replaced characters
+		range.location += range.length;
+		range.length = len - range.location;
+	}
+	return newString;
 }
 
 /**
@@ -407,7 +444,7 @@
 
 	if (n++ != 0 && m++ != 0) 
 	{
-		d = malloc(sizeof(NSInteger) * m * n);
+		d = calloc(m * n, sizeof(NSInteger));
 
 		for (k = 0; k < n; k++) 
 		{
@@ -424,9 +461,9 @@
 			cost = ([stringA characterAtIndex:i - 1] == [stringB characterAtIndex:j - 1]) ? 0 : 1;
 
 			d[j * n + i] = 
-			[self _smallestOf:d[(j - 1) * n + i] + 1 
-						andOf:d[j * n + i - 1] +  1
-						andOf:d[(j - 1) * n + i -1] + cost];
+			_smallestOf(d[(j - 1) * n + i] + 1,
+			            d[j * n + i - 1] +  1,
+			            d[(j - 1) * n + i -1] + cost);
 		}
 
 		distance = d[n * m - 1];
@@ -466,10 +503,125 @@
 	}
 }
 
+- (BOOL)nonConsecutivelySearchString:(NSString *)other matchingRanges:(NSArray **)submatches
+{
+	NSStringCompareOptions opts = NSCaseInsensitiveSearch|NSDiacriticInsensitiveSearch|NSWidthInsensitiveSearch;
+	BOOL recordMatches = (submatches != NULL); //for readability
+	NSRange selfRange = NSMakeRange(0, [self length]);
+	
+	//shortcut: * a longer string can never be contained in a shorter one.
+	//          * nil can never match in a string.
+	//          * an empty other can never match if self is non-empty
+	if(([other length] > [self length]) || (!other) || ([self length] && ![other length]))
+		return NO;
+	
+	//handle the simple case via the default algorithm
+	if ([self compare:other options:opts] == NSOrderedSame) {
+		if(recordMatches) {
+			*submatches = [NSArray arrayWithObject:[NSValue valueWithRange:selfRange]];
+		}
+		return YES;
+	}
+	
+	// for now let's save the overhead of NSArray and NSValues
+	NSRange *tmpMatchStore = recordMatches? calloc([other length], sizeof(NSRange)) : NULL;
+	__block NSUInteger matchCount = 0;
+	__block NSRange searchRange = selfRange;
+	
+	//this looks a bit silly but is basically Apples approach to handling multibyte charsets
+	void (^it)(NSString *,NSRange,NSRange,BOOL *) = ^(NSString *substring,NSRange substringRange,NSRange enclosingRange,BOOL *stop) {
+		//look for the current character of other in the remaining part of self
+		NSRange found = [self rangeOfString:substring options:opts range:searchRange];
+		if(found.location == NSNotFound) {
+			matchCount = 0; //reset match count to "no match"
+			*stop = YES;
+			return;
+		}
+		if(recordMatches)
+			tmpMatchStore[matchCount] = found;
+		matchCount++;
+		//move the next search past the current match
+		searchRange.location = NSMaxRange(found);
+		searchRange.length   = [self length] - searchRange.location;
+	};
+	
+	[other enumerateSubstringsInRange:NSMakeRange(0, [other length])
+							  options:NSStringEnumerationByComposedCharacterSequences
+						   usingBlock:it];
+	
+	if(matchCount && recordMatches) {
+		//we want to re-combine sub-matches that are actually consecutive
+		
+		//This algorithm uses a simple look-behind for merges:
+		//  Object 1 checks if it continues object 0. If so, 1 and 0 will merge
+		//  and be placed in the slot of 0 (slot 1 is now invalid).
+		//  Then object 2 checks if it continues object 0. If it does not, it is
+		//  placed in slot 1.
+		//  Object 3 then checks if it continues object 1 and so on...
+		NSUInteger mergeTarget = 0;
+		for (NSUInteger i = 1; i < matchCount; i++ ) {
+			NSRange prev = tmpMatchStore[mergeTarget];
+			NSRange this = tmpMatchStore[i];
+			//if the previous match ends right before this match begins we can merge them
+			if(NSMaxRange(prev) == this.location) {
+				NSRange mergedRange = NSMakeRange(prev.location, prev.length+this.length);
+				tmpMatchStore[mergeTarget] = mergedRange;
+			}
+			//otherwise we have to move on to the next and make ourselves the new base
+			else {
+				if(++mergeTarget != i)
+					tmpMatchStore[mergeTarget] = this;
+			}
+		}
+		matchCount = mergeTarget+1;
+		
+		//Next we want to merge non-adjacent matches that could be adjacent. Example:
+		//  Haystack:    "central_private_rabbit_park"
+		//  Needle:      "centralpark"
+		//  Unoptimized: "central_private_rabbit_park"
+		//                ^^^^^^^ ^   ^   ^         ^ = 5
+		//  Desired:     "central_private_rabbit_park"
+		//                ^^^^^^^                ^^^^ = 2
+		//
+		//  This time we start from the end (object K) and check if object K-1 can
+		//  actually be placed directly in front of K and if so, merge them both into
+		//  a new K-1 and shift down K+1 to K, K+2 to K+1, ...
+		for (NSUInteger k = matchCount - 1; k > 0; k--) {
+			NSRange my   = tmpMatchStore[k];
+			NSRange prev = tmpMatchStore[k-1];
+			NSString *prevMatch = [self substringWithRange:prev];
+			NSRange left = NSMakeRange(my.location - prev.length, prev.length);
+			NSString *myLeftSide = [self substringWithRange:left];
+			if([prevMatch compare:myLeftSide options:opts] == NSOrderedSame) {
+				//yay, let's merge them
+				tmpMatchStore[k-1] = NSMakeRange(left.location, my.length+prev.length);
+				//we now have to shift down k+1 to k, k+2 to k+1, ...
+				for (NSUInteger n = k+1; n < matchCount; n++) {
+					tmpMatchStore[n-1] = tmpMatchStore[n];
+				}
+				//merging means one match less in total
+				matchCount--;
+			}
+		}
+		
+		NSMutableArray *combinedArray = [NSMutableArray arrayWithCapacity:matchCount];
+		for (NSUInteger j = 0; j < matchCount; j++) {
+			[combinedArray addObject:[NSValue valueWithRange:tmpMatchStore[j]]];
+		}
+		
+		*submatches = combinedArray;
+	}
+	
+	free(tmpMatchStore); // free(NULL) is safe as per OS X man page
+	return (matchCount > 0);
+}
+
+@end
+
 /**
  * Returns the minimum of a, b and c.
  */
-- (NSInteger)_smallestOf:(NSInteger)a andOf:(NSInteger)b andOf:(NSInteger)c
+static NSInteger _smallestOf(NSInteger a, NSInteger b, NSInteger c)
 {
 	NSInteger min = a;
 	
@@ -478,6 +630,18 @@
 	if (c < min) min = c;
 
 	return min;
+}
+
+@implementation NSMutableString (SPStringAdditions)
+
+- (void)setStringOrNil:(NSString *)aString
+{
+	[self setString:(aString? aString : @"")];
+}
+
+- (void)appendStringOrNil:(NSString *)aString
+{
+	[self appendString:(aString? aString : @"")];
 }
 
 @end

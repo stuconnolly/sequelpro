@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPConnectionControllerInitializer.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPConnectionControllerInitializer.h"
 #import "SPKeychain.h"
@@ -322,7 +320,7 @@ static NSString *SPConnectionViewNibName = @"ConnectionView";
 	[favoritesOutlineView setDoubleAction:@selector(nodeDoubleClicked:)];
 	
 	// Register drag types for the favorites outline view
-	[favoritesOutlineView registerForDraggedTypes:[NSArray arrayWithObject:SPFavoritesPasteboardDragType]];
+	[favoritesOutlineView registerForDraggedTypes:@[SPFavoritesPasteboardDragType]];
 	[favoritesOutlineView setDraggingSourceOperationMask:NSDragOperationMove forLocal:YES];	
 }
 

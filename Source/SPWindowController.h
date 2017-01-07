@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPWindowController.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class PSMTabBarControl;
 @class SPDatabaseDocument;
@@ -39,7 +37,7 @@
 	IBOutlet NSTabView *tabView;
 
 	NSClipView *titleBarLineHidingView;
-	SInt32 systemVersion;
+	BOOL isOSVersionAtLeast10_7_0;
 
 	NSMenuItem *closeWindowMenuItem;
 	NSMenuItem *closeTabMenuItem;
@@ -51,7 +49,19 @@
 // Database connection management
 - (IBAction)addNewConnection:(id)sender;
 - (IBAction)moveSelectedTabInNewWindow:(id)sender;
+
+- (SPDatabaseDocument *)addNewConnection;
+
+/**
+ * @danger THIS IS NOT RETAINED!!! 
+ *
+ * Ever only directly use it on the main thread! 
+ * Do not cache it without retaining first!
+ * For background threads get it and retain it via the main thread!
+ *   Release it on the main thread again.
+ */
 - (SPDatabaseDocument *)selectedTableDocument;
+
 - (void)updateSelectedTableDocument;
 - (void)updateAllTabTitles:(id)sender;
 - (IBAction)closeTab:(id)sender;
@@ -61,5 +71,6 @@
 - (NSArray *)documents;
 - (void)selectTabAtIndex:(NSInteger)index;
 - (void)setHideForSingleTab:(BOOL)hide;
+- (void)updateTabBar;
 
 @end

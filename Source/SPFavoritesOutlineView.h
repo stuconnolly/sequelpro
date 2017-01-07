@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoritesOutlineView.h
 //  sequel-pro
 //
@@ -28,15 +26,25 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
+
+#import "SPOSInfo.h"
 
 @interface SPFavoritesOutlineView : NSOutlineView
 {
-	SInt32 systemVersion;
-	
+	BOOL isOSVersionAtLeast10_7_0;
 	BOOL justGainedFocus;
+	
+	id _itemForDoubleAction;
 }
 
 @property (assign) BOOL justGainedFocus;
+
+/**
+ * The item on which the last doubleAction (double click or enter/return key) was performed.
+ * May be nil.
+ * This is only valid during the call to the doubleAction target!
+ */
+@property (nonatomic,readonly,assign) id itemForDoubleAction;
 
 @end

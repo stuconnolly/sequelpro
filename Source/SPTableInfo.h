@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableInfo.h
 //  sequel-pro
 //
@@ -28,11 +26,11 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @interface SPTableInfo : NSObject 
 {
-	IBOutlet id infoTable;
+	IBOutlet NSTableView *infoTable;
 	IBOutlet id tableList;
 	IBOutlet id tableListInstance;
 	IBOutlet id tableDataInstance;

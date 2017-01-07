@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMySQL.h
 //  SPMySQLFramework
 //
@@ -28,13 +26,14 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPMySQLConnection, SPMySQLResult, SPMySQLStreamingResult, SPMySQLFastStreamingResult, SPMySQLStreamingResultStore;
 
 // Global include file for the framework.
 // Constants
 #import "SPMySQLConstants.h"
+#import "SPMySQLDataTypes.h"
 
 // Required category additions
 #ifndef SP_CODA

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPContentFilterManager.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPContentFilterManager.h"
 #import "ImageAndTextCell.h"
@@ -39,6 +37,10 @@
 #import "SPTableContent.h"
 #import "SPConnectionController.h"
 #import "SPSplitView.h"
+#import "SPAppController.h"
+#import "SPAppleScriptSupport.h"
+
+static NSString *SPExportFilterAction = @"SPExportFilter";
 
 #define SP_MULTIPLE_SELECTION_PLACEHOLDER_STRING NSLocalizedString(@"[multiple selection]", @"[multiple selection]")
 #define SP_NO_SELECTION_PLACEHOLDER_STRING       NSLocalizedString(@"[no selection]", @"[no selection]")
@@ -63,6 +65,7 @@
 		if (managerDelegate == nil) {
 			NSBeep();
 			NSLog(@"ContentFilterManager was called without a delegate.");
+
 			return nil;
 		}
 		
@@ -82,27 +85,30 @@
  */
 - (void)awakeFromNib
 {
-
 	// Set up the split view
 	[contentFilterSplitView setMinSize:120.f ofSubviewAtIndex:0];
 	[contentFilterSplitView setMaxSize:245.f ofSubviewAtIndex:0];
 
 	// Add global group row to contentFilters
-	[contentFilters addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-			NSLocalizedString(@"Global",@"Content Filter Manager : Filter Entry List: 'Global' Header"), @"MenuLabel",
-			@"", @"headerOfFileURL",
-			@"", @"Clause",
-			@"", @"ConjunctionLabel",
-			nil]];
+	[contentFilters addObject:@{
+			@"MenuLabel"        : NSLocalizedString(@"Global", @"Content Filter Manager : Filter Entry List: 'Global' Header"),
+			@"headerOfFileURL"  : @"",
+			@"Clause"           : @"",
+			@"ConjunctionLabel" : @""
+	}];
 
 #ifndef SP_CODA /* prefs access */
 	// Build data source for global content filter (as mutable copy! otherwise each
 	// change will be stored in the prefs at once)
-	if([[prefs objectForKey:SPContentFilters] objectForKey:filterType]) {
-		for(id fav in [[prefs objectForKey:SPContentFilters] objectForKey:filterType]) {
+	if ([[prefs objectForKey:SPContentFilters] objectForKey:filterType]) {
+		for (id fav in [[prefs objectForKey:SPContentFilters] objectForKey:filterType])
+		{
 			id f = [[fav mutableCopy] autorelease];
-			if([f objectForKey:@"ConjunctionLabels"])
+
+			if ([f objectForKey:@"ConjunctionLabels"]) {
 				[f setObject:[[f objectForKey:@"ConjunctionLabels"] objectAtIndex:0] forKey:@"ConjunctionLabel"];
+			}
+
 			[contentFilters addObject:f];
 		}
 	}
@@ -114,14 +120,13 @@
 		@"", @"Clause",
 		nil]];
 	
-	if([[SPQueryController sharedQueryController] contentFilterForFileURL:delegatesFileURL]) {
+	if ([[SPQueryController sharedQueryController] contentFilterForFileURL:delegatesFileURL]) {
 		id filters = [[SPQueryController sharedQueryController] contentFilterForFileURL:delegatesFileURL];
 		if([filters objectForKey:filterType])
 			for(id fav in [filters objectForKey:filterType])
 				[contentFilters addObject:[[fav mutableCopy] autorelease]];
 	}
 #endif
-
 
 	// Select the first query if any
 	NSUInteger i = 0;
@@ -139,7 +144,7 @@
 	[contentFilterTextView setString:@""];
 
 	// Register drag types
-	[contentFilterTableView registerForDraggedTypes:[NSArray arrayWithObject:SPContentFilterPasteboardDragType]];
+	[contentFilterTableView registerForDraggedTypes:@[SPContentFilterPasteboardDragType]];
 
 	[contentFilterArrayController setContent:contentFilters];
 	[contentFilterTableView reloadData];
@@ -162,19 +167,17 @@
 - (NSMutableArray *)contentFilterForFileURL:(NSURL *)fileURL
 {
 	NSMutableArray *filters = [NSMutableArray array];
-	NSString *fileURLstring;
 
-	if(fileURL == nil)
-		fileURLstring = @"";
-	else
-		fileURLstring = [fileURL absoluteString];
+	NSString *fileURLstring = (fileURL == nil) ? @"" : [fileURL absoluteString];
 
 	NSUInteger i = 0;
 
 	// Look for the header specified by fileURL
-	while(i<[contentFilters count]) {
-		if ([[contentFilters objectAtIndex:i] objectForKey:@"headerOfFileURL"]
-				&& [[[contentFilters objectAtIndex:i] objectForKey:@"headerOfFileURL"] isEqualToString:fileURLstring]) {
+	while (i<[contentFilters count])
+	{
+		if ([[contentFilters objectAtIndex:i] objectForKey:@"headerOfFileURL"] &&
+			[[[contentFilters objectAtIndex:i] objectForKey:@"headerOfFileURL"] isEqualToString:fileURLstring])
+		{
 			i++;
 			break;
 		}
@@ -185,8 +188,8 @@
 	// Take all content filters until the next header or end of all content filters
 	NSUInteger numOfArgs;
 	
-	for ( ; i<[contentFilters count]; i++) {
-
+	for (; i < [contentFilters count]; i++)
+	{
 		if(![[contentFilters objectAtIndex:i] objectForKey:@"headerOfFileURL"]) {
 			NSMutableDictionary *d = [[NSMutableDictionary alloc] init];
 			[d setDictionary:[contentFilters objectAtIndex:i]];
@@ -205,9 +208,10 @@
 			[d setObject:[NSNumber numberWithInteger:numOfArgs] forKey:@"NumberOfArguments"];
 			[filters addObject:d];
 			[d release];
-		} else
+		}
+		else {
 			break;
-
+		}
 	}
 
 	return filters;
@@ -237,10 +241,10 @@
 
 	// Duplicate a selected filter if sender == self
 	if(sender == self)
-		filter = [NSMutableDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[NSString stringWithFormat:NSLocalizedString(@"%@ Copy",@"Content Filter Manager : Initial name of copied filter"),[contentFilterNameTextField stringValue]], [contentFilterTextView string], nil] forKeys:[NSArray arrayWithObjects:@"MenuLabel", @"Clause", nil]];
+		filter = [NSMutableDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[NSString stringWithFormat:NSLocalizedString(@"%@ Copy",@"Content Filter Manager : Initial name of copied filter"),[contentFilterNameTextField stringValue]], [contentFilterTextView string], nil] forKeys:@[@"MenuLabel", @"Clause"]];
 	// Add a new filter
 	else
-		filter = [NSMutableDictionary dictionaryWithObjects:[NSArray arrayWithObjects:NSLocalizedString(@"New Filter",@"Content Filter Manager : Initial name for new filter"), @"", @"", nil] forKeys:[NSArray arrayWithObjects:@"MenuLabel", @"Clause", @"ConjunctionLabel", nil]];
+		filter = [NSMutableDictionary dictionaryWithObjects:@[NSLocalizedString(@"New Filter",@"Content Filter Manager : Initial name for new filter"), @"", @""] forKeys:@[@"MenuLabel", @"Clause", @"ConjunctionLabel"]];
 
 	// If a favourite is currently selected, add the new favourite next to it
 	if([contentFilterTableView numberOfSelectedRows] > 0) {
@@ -330,14 +334,17 @@
 #ifndef SP_CODA
 	NSSavePanel *panel = [NSSavePanel savePanel];
 
-	[panel setAllowedFileTypes:[NSArray arrayWithObject:SPFileExtensionDefault]];
+	[panel setAllowedFileTypes:@[SPFileExtensionDefault]];
 
 	[panel setExtensionHidden:NO];
 	[panel setAllowsOtherFileTypes:NO];
 	[panel setCanSelectHiddenExtension:YES];
 	[panel setCanCreateDirectories:YES];
 
-	[panel beginSheetForDirectory:nil file:nil modalForWindow:[self window] modalDelegate:self didEndSelector:@selector(savePanelDidEnd:returnCode:contextInfo:) contextInfo:@"exportFilter"];
+	[panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger returnCode)
+	{
+		[self savePanelDidEnd:panel returnCode:returnCode contextInfo:SPExportFilterAction];
+	}];
 #endif
 }
 
@@ -348,19 +355,18 @@
 {
 #ifndef SP_CODA
 	NSOpenPanel *panel = [NSOpenPanel openPanel];
+
 	[panel setCanSelectHiddenExtension:YES];
 	[panel setDelegate:self];
 	[panel setCanChooseDirectories:NO];
 	[panel setAllowsMultipleSelection:NO];
-	// [panel setResolvesAliases:YES];
 
-	[panel beginSheetForDirectory:nil
-						   file:@""
-						  types:[NSArray arrayWithObjects:SPFileExtensionDefault, nil]
-				 modalForWindow:[self window]
-				  modalDelegate:self
-				 didEndSelector:@selector(importPanelDidEnd:returnCode:contextInfo:)
-					contextInfo:NULL];
+	[panel setAllowedFileTypes:@[SPFileExtensionDefault]];
+
+	[panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger returnCode)
+	{
+		[self importPanelDidEnd:panel returnCode:returnCode contextInfo:nil];
+	}];
 #endif
 }
 
@@ -377,7 +383,6 @@
  */
 - (IBAction)closeContentFilterManagerSheet:(id)sender
 {
-
 	[NSApp endSheet:[self window] returnCode:0];
 	[[self window] orderOut:self];
 
@@ -401,21 +406,19 @@
 		[cf release];
 
 		// Inform all opened documents to update the query favorites list
-		for(id doc in [[NSApp delegate] orderedDocuments])
+		for(id doc in [SPAppDelegate orderedDocuments])
 			if([[doc valueForKeyPath:@"tableContentInstance"] respondsToSelector:@selector(setCompareTypes:)])
 				[[doc valueForKeyPath:@"tableContentInstance"] setCompareTypes:nil];
-
 #endif
 
 	}
-
 }
 
 /**
  * It triggers an update of contentFilterTextView and 
  * resultingClauseContentLabel by inserting @"" into contentFilterTextView
  */
-- (IBAction)suppressLeadingFiledPlaceholderWasChanged:(id)sender
+- (IBAction)suppressLeadingFieldPlaceholderWasChanged:(id)sender
 {
 	[contentFilterTextView insertText:@""];
 }
@@ -554,7 +557,7 @@
 - (BOOL)tableView:(NSTableView *)aTableView writeRowsWithIndexes:(NSIndexSet *)rows toPasteboard:(NSPasteboard*)pboard
 {
 
-	NSArray *pboardTypes = [NSArray arrayWithObject:SPContentFilterPasteboardDragType];
+	NSArray *pboardTypes = @[SPContentFilterPasteboardDragType];
 	NSUInteger originalRow = [rows firstIndex];
 
 	if(originalRow < 1) return NO;
@@ -678,10 +681,10 @@
 			[contentFilterNameTextField setStringValue:
 				[[contentFilters objectAtIndex:[contentFilterTableView selectedRow]] objectForKey:@"MenuLabel"]];
 
-		return TRUE;
+		return YES;
 	}
 
-	return FALSE;
+	return NO;
 }
 
 /**
@@ -758,7 +761,7 @@
 			[c flushCachedRegexData];
 			[c replaceOccurrencesOfRegex:@"(?<!\\\\)\\$CURRENT_FIELD" withString:@"<field>"];
 			[c flushCachedRegexData];
-			[resultingClauseContentLabel setStringValue:[NSString stringWithFormat:@"%@%@", ([suppressLeadingFiledPlaceholderCheckbox state] == NSOnState) ? @"" : @"<field> ", c]];
+			[resultingClauseContentLabel setStringValue:[NSString stringWithFormat:@"%@%@", ([suppressLeadingFieldPlaceholderCheckbox state] == NSOnState) ? @"" : @"<field> ", c]];
 			[c release];
 		}
 
@@ -836,7 +839,7 @@
 #ifndef SP_CODA
 	if (returnCode == NSOKButton) {
 
-		NSString *filename = [[panel filenames] objectAtIndex:0];
+		NSString *filename = [[[panel URLs] objectAtIndex:0] path];
 		NSError *readError = nil;
 		NSString *convError = nil;
 		NSPropertyListFormat format;
@@ -919,7 +922,7 @@
 {
 
 #ifndef SP_CODA
-	if([contextInfo isEqualToString:@"exportFilter"]) {
+	if([contextInfo isEqualToString:SPExportFilterAction]) {
 		if (returnCode == NSOKButton) {
 
 			// Build a SPF with format = "content filters"
@@ -928,9 +931,9 @@
 			NSMutableArray *filterData = [NSMutableArray array];
 
 
-			[spfdata setObject:[NSNumber numberWithInteger:1] forKey:@"version"];
-			[spfdata setObject:@"content filters" forKey:@"format"];
-			[spfdata setObject:[NSNumber numberWithBool:NO] forKey:@"encrypted"];
+			[spfdata setObject:@1 forKey:SPFVersionKey];
+			[spfdata setObject:SPFContentFiltersContentType forKey:SPFFormatKey];
+			[spfdata setObject:@NO forKey:@"encrypted"];
 
 			NSIndexSet *indexes = [contentFilterTableView selectedRowIndexes];
 
@@ -973,7 +976,7 @@
 
 - (void)dealloc
 {
-	[contentFilters release];
+	SPClear(contentFilters);
 	
 	[super dealloc];
 }

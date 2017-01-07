@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDatabaseDocument.h
 //  sequel-pro
 //
@@ -29,7 +27,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #ifndef SP_CODA /* headers */
 #import <WebKit/WebKit.h>
@@ -57,16 +55,19 @@
 @class SPDatabaseStructure;
 @class SPMySQLConnection;
 @class SPCharsetCollationHelper;
+@class SPGotoDatabaseController;
+@class SPCreateDatabaseInfo;
 
 #import "SPDatabaseContentViewDelegate.h"
 #import "SPConnectionControllerDelegateProtocol.h"
+#import "SPThreadAdditions.h"
 
 #import <SPMySQL/SPMySQLConnectionDelegate.h>
 
 /**
  * The SPDatabaseDocument class controls the primary database view window.
  */
-@interface SPDatabaseDocument : NSObject <SPConnectionControllerDelegateProtocol, SPMySQLConnectionDelegate, NSTextFieldDelegate, NSToolbarDelegate>
+@interface SPDatabaseDocument : NSObject <SPConnectionControllerDelegateProtocol, SPMySQLConnectionDelegate, NSTextFieldDelegate, NSToolbarDelegate, SPCountedObject, WebFrameLoadDelegate>
 {
 #ifdef SP_CODA /* patch */
 	id delegate;
@@ -105,7 +106,7 @@
 
 	IBOutlet NSView *parentView;
 	
-	IBOutlet id titleAccessoryView;
+	IBOutlet NSView *titleAccessoryView;
 	IBOutlet id titleImageView;
 	IBOutlet id titleStringView;
 	
@@ -154,6 +155,7 @@
 	
 	IBOutlet NSTableView *tableInfoTable;
 	IBOutlet SPSplitView *contentViewSplitter;
+	IBOutlet SPSplitView *tableInfoSplitView;
 	
 	IBOutlet NSPopUpButton *encodingPopUp;
 #endif
@@ -282,6 +284,9 @@
 	BOOL windowTitleStatusViewIsVisible;
 #endif
 	SPDatabaseStructure *databaseStructureRetrieval;
+	SPGotoDatabaseController *gotoDatabaseController;
+	
+	int64_t instanceId;
 }
 
 #ifdef SP_CODA /* ivars */
@@ -319,6 +324,7 @@
 #endif
 @property (readonly) SPServerSupport *serverSupport;
 @property (readonly) SPDatabaseStructure *databaseStructureRetrieval;
+@property (readonly) int64_t instanceId;
 
 #ifndef SP_CODA /* method decls */
 - (BOOL)isUntitled;
@@ -353,7 +359,9 @@
 - (IBAction) makeTableListFilterHaveFocus:(id)sender;
 - (IBAction)showServerVariables:(id)sender;
 - (IBAction)showServerProcesses:(id)sender;
+- (IBAction)shutdownServer:(id)sender;
 - (IBAction)openCurrentConnectionInNewWindow:(id)sender;
+- (IBAction)showGotoDatabase:(id)sender;
 #endif
 - (NSArray *)allDatabaseNames;
 - (NSArray *)allSystemDatabaseNames;
@@ -403,31 +411,33 @@
 - (IBAction)exportSelectedTablesAs:(id)sender;
 
 // Other methods
-- (void) setQueryMode:(NSInteger)theQueryMode;
 - (IBAction)closeSheet:(id)sender;
 - (IBAction)closePanelSheet:(id)sender;
+- (IBAction)validateSaveConnectionAccessory:(id)sender;
+- (IBAction)closePasswordSheet:(id)sender;
+- (IBAction)backForwardInHistory:(id)sender;
+- (IBAction)showUserManager:(id)sender;
+- (IBAction)copyChecksumFromSheet:(id)sender;
+- (IBAction)showNavigator:(id)sender;
+- (IBAction)toggleNavigator:(id)sender;
+
+- (void)setQueryMode:(NSInteger)theQueryMode;
 - (void)doPerformQueryService:(NSString *)query;
 - (void)doPerformLoadQueryService:(NSString *)query;
 - (void)flushPrivileges:(id)sender;
 - (void)closeConnection;
 - (NSWindow *)getCreateTableSyntaxWindow;
+
 #endif
 - (void)refreshCurrentDatabase;
 #ifndef SP_CODA /* method decls */
+
 - (void)saveConnectionPanelDidEnd:(NSSavePanel *)panel returnCode:(NSInteger)returnCode  contextInfo:(void  *)contextInfo;
-- (IBAction)validateSaveConnectionAccessory:(id)sender;
 - (BOOL)saveDocumentWithFilePath:(NSString *)fileName inBackground:(BOOL)saveInBackground onlyPreferences:(BOOL)saveOnlyPreferences contextInfo:(NSDictionary*)contextInfo;
-- (IBAction)closePasswordSheet:(id)sender;
-- (IBAction)backForwardInHistory:(id)sender;
-- (IBAction)showUserManager:(id)sender;
-- (void)userManagerSheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void*)context;
-- (IBAction)copyChecksumFromSheet:(id)sender;
 - (void)setIsSavedInBundle:(BOOL)savedInBundle;
 - (void)setFileURL:(NSURL *)fileURL;
 - (void)connect;
 - (void)showConsole:(id)sender;
-- (IBAction)showNavigator:(id)sender;
-- (IBAction)toggleNavigator:(id)sender;
 #endif
 
 // Accessor methods
@@ -448,6 +458,7 @@
 #endif
 - (NSArray *)allTableNames;
 - (SPTablesList *)tablesListInstance;
+- (SPCreateDatabaseInfo *)createDatabaseInfo;
 
 #ifndef SP_CODA /* method decls */
 // Notification center methods
@@ -506,13 +517,15 @@
 // State saving and setting
 - (NSDictionary *) stateIncludingDetails:(NSDictionary *)detailsToReturn;
 - (BOOL)setState:(NSDictionary *)stateDetails;
+- (BOOL)setState:(NSDictionary *)stateDetails fromFile:(BOOL)spfBased;
 - (BOOL)setStateFromConnectionFile:(NSString *)path;
 - (void)restoreSession;
 #endif
 
+- (SPConnectionController*)connectionController;
+
 #ifdef SP_CODA /* method decls */
 - (SPConnectionController*)createConnectionController;
-- (SPConnectionController*)connectionController;
 - (void)connect;
 - (void)setTableSourceInstance:(SPTableStructure*)source;
 - (void)setTableContentInstance:(SPTableContent*)content;

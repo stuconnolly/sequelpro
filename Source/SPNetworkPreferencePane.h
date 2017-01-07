@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPNetworkPreferencePane.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPreferencePane.h"
 
@@ -39,6 +37,19 @@
  *
  * Network preference pane controller.
  */
-@interface SPNetworkPreferencePane : SPPreferencePane <SPPreferencePaneProtocol> 
-
+@interface SPNetworkPreferencePane : SPPreferencePane <SPPreferencePaneProtocol, NSTableViewDataSource, NSTableViewDelegate>
+{
+	IBOutlet NSView *sshClientPickerView;
+	IBOutlet NSTextField *sshClientPath;
+	IBOutlet NSView *hiddenFileView;
+	IBOutlet NSTableView *sslCipherView;
+	
+@private
+	NSAlert *_currentAlert;
+	NSOpenPanel *_currentFilePanel;
+	NSMutableArray *sslCiphers;
+}
+- (IBAction)pickSSHClientViaFileBrowser:(id)sender;
+- (IBAction)pickSSHClient:(id)sender;
+- (IBAction)resetCipherList:(id)sender;
 @end

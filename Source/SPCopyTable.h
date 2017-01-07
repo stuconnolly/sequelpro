@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPCopyTable.h
 //  sequel-pro
 //
@@ -30,7 +28,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTableView.h"
 
@@ -42,7 +40,7 @@
 
 extern NSInteger SPEditMenuCopy;
 extern NSInteger SPEditMenuCopyWithColumns;
-extern NSInteger SPEditCopyAsSQL;
+extern NSInteger SPEditMenuCopyAsSQL;
 
 /*!
 	@class copyTable
@@ -54,7 +52,7 @@ extern NSInteger SPEditCopyAsSQL;
 */
 @interface SPCopyTable : SPTableView
 {
-	SPTableContent* tableInstance;                 // the table content view instance
+	SPTableContent* tableInstance;    // the table content view instance
 	id mySQLConnection;               // current MySQL connection
 	NSArray* columnDefinitions;       // array of NSDictionary containing info about columns
 	NSString* selectedTable;          // the name of the current selected table
@@ -96,7 +94,7 @@ extern NSInteger SPEditCopyAsSQL;
 	@param	  isLocal who cares
 	@result	 Always calls for a copy type drag operation
 */
-- (NSUInteger)draggingSourceOperationMaskForLocal:(BOOL)isLocal;
+- (NSDragOperation)draggingSourceOperationMaskForLocal:(BOOL)isLocal;
 
 #ifndef SP_CODA /* method decls */
 /*!
@@ -185,15 +183,16 @@ extern NSInteger SPEditCopyAsSQL;
 - (BOOL)isCellComplex;
 
 /*!
-	@method	 shouldUseFieldEditorForRow:column:
+	@method	 shouldUseFieldEditorForRow:column:useLock:
 	@abstract   Determine whether to trigger sheet editing or in-cell editing for a cell
 	@discussion Checks the column data type, and the cell contents if necessary, to check
 		the most appropriate editing type.
 	@param	 rowIndex The row in the table the cell is present in
 	@param	 colIndex The *original* column in the table the cell is present in (ie pre-reordering)
+	@param	 dataLock An optional pthread_mutex_t lock to use when checking the data
 	@result	 YES if sheet editing should be used, NO otherwise.
 */
-- (BOOL)shouldUseFieldEditorForRow:(NSUInteger)rowIndex column:(NSUInteger)colIndex;
+- (BOOL)shouldUseFieldEditorForRow:(NSUInteger)rowIndex column:(NSUInteger)colIndex checkWithLock:(pthread_mutex_t *)dataLock;
 
 - (IBAction)executeBundleItemForDataTable:(id)sender;
 

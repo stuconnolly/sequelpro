@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDatabaseData.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPServerSupport;
 @class SPMySQLConnection;
@@ -44,6 +42,7 @@
 @interface SPDatabaseData : NSObject 
 {
 	NSString *characterSetEncoding;
+	NSString *defaultCollationForCharacterSet;
 	NSString *defaultCharacterSetEncoding;
 	NSString *defaultCollation;
 	NSString *serverDefaultCharacterSetEncoding;
@@ -57,7 +56,9 @@
 	NSMutableDictionary *cachedCollationsByEncoding;
 	
 	SPMySQLConnection *connection;
-	SPServerSupport *serverSupport;	
+	SPServerSupport *serverSupport;
+	
+	NSObject *charsetCollationLock;
 }
 
 /**
@@ -74,6 +75,8 @@
 
 - (NSArray *)getDatabaseCollations;
 - (NSArray *)getDatabaseCollationsForEncoding:(NSString *)encoding;
+- (NSString *)getDefaultCollationForEncoding:(NSString *)encoding;
+- (NSString *)getEncodingFromCollation:(NSString *)collation;
 - (NSArray *)getDatabaseStorageEngines;
 - (NSArray *)getDatabaseCharacterSetEncodings;
 

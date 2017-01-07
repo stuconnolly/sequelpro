@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPObjectAdditions.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @interface  NSObject (SPObjectAdditions)
 
@@ -36,5 +34,16 @@
  * Detect whether an object is a NSNull instance.
  */
 - (BOOL)isNSNull;
+
+/**
+ * This is the complementing method to SPBoxNull()
+ * @return The object itself or nil if self == [NSNull null]
+ */
+- (instancetype)unboxNull;
+
+/**
+ * easier to read version of [array containsObject:x]
+ */
+- (BOOL)isInArray:(NSArray *)list;
 
 @end

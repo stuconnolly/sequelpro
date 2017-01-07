@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPConstants.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 /**
  * This header should be used to define constants that are used globally (i.e. among multiple classes/files).
@@ -48,54 +46,49 @@ typedef enum {
 } SPViewMode;
 
 // Query modes
-enum {
+typedef NS_ENUM(NSUInteger, SPQueryMode) {
 	SPInterfaceQueryMode    = 0,
 	SPCustomQueryQueryMode  = 1,
 	SPImportExportQueryMode = 2
 };
-typedef NSUInteger SPQueryMode;
 
 // Connection types
-enum {
+typedef NS_ENUM(NSUInteger, SPConnectionType) {
 	SPTCPIPConnection     = 0,
 	SPSocketConnection    = 1,
 	SPSSHTunnelConnection = 2
-}; 
-typedef NSUInteger SPConnectionType;
+};
 
 // Export type constants
-enum {
+typedef NS_ENUM(NSUInteger, SPExportType) {
 	SPSQLExport   = 0,
 	SPCSVExport   = 1,
 	SPXMLExport   = 2,
 	SPDotExport   = 3,
 	SPPDFExport   = 4,
 	SPHTMLExport  = 5,
-	SPExcelExport = 6
+	SPExcelExport = 6,
+	SPAnyExportType = NSUIntegerMax, // this is a transient type to indicate "no specific choice"
 };
-typedef NSUInteger SPExportType;
 
 // Export source constants
-enum {
+typedef NS_ENUM(NSUInteger, SPExportSource) {
 	SPFilteredExport = 0,
 	SPQueryExport    = 1,
 	SPTableExport    = 2
 };
-typedef NSUInteger SPExportSource;
 
 // SQL export INSERT statment divider constants
-enum {
+typedef NS_ENUM(NSUInteger , SPSQLExportInsertDivider) {
 	SPSQLInsertEveryNDataBytes = 0,
 	SPSQLInsertEveryNRows      = 1
 };
-typedef NSUInteger SPSQLExportInsertDivider;
 
 // XML export formats
-enum {
+typedef NS_ENUM(NSUInteger, SPXMLExportFormat) {
 	SPXMLExportMySQLFormat = 0,
 	SPXMLExportPlainFormat = 1
 };
-typedef NSUInteger SPXMLExportFormat;
 
 // Table row count query usage levels
 typedef enum {
@@ -111,7 +104,8 @@ typedef enum
 	SPTableTypeTable = 0,
 	SPTableTypeView  = 1,
 	SPTableTypeProc  = 2,
-	SPTableTypeFunc  = 3
+	SPTableTypeFunc  = 3,
+	SPTableTypeEvent = 4
 } SPTableType;
 
 // History views
@@ -136,10 +130,11 @@ typedef enum
 // Sort by constants
 typedef enum
 {
-	SPFavoritesSortUnsorted = -1,
-	SPFavoritesSortNameItem = 0,
-	SPFavoritesSortHostItem = 1,
-	SPFavoritesSortTypeItem = 2
+	SPFavoritesSortUnsorted  = -1,
+	SPFavoritesSortNameItem  =  0,
+	SPFavoritesSortHostItem  =  1,
+	SPFavoritesSortTypeItem  =  2,
+	SPFavoritesSortColorItem =  3
 } SPFavoritesSortItem;
 
 // Text and link cell draw states
@@ -155,6 +150,14 @@ typedef enum
 {
 	SPMainMenuSequelPro = 0,
 	SPMainMenuFile      = 1,
+	SPMainMenuFileSaveConnection   = 1004,
+	SPMainMenuFileSaveConnectionAs = 1005,
+	SPMainMenuFileSaveQuery        = 1006,
+	SPMainMenuFileSaveQueryAs      = 1008,
+	SPMainMenuFileSaveSession      = 1020,
+	SPMainMenuFileSaveSessionAs    = 1021,
+	SPMainMenuFileClose            = 1003,
+	SPMainMenuFileCloseTab         = 1103,
 	SPMainMenuEdit      = 2,
 	SPMainMenuView      = 3,
 	SPMainMenuDatabase  = 4,
@@ -185,7 +188,8 @@ typedef enum
 	SPEncodingBig5Chinese		= 150,
 	SPEncodingShiftJISJapanese	= 160,
 	SPEncodingEUCJPJapanese		= 170,
-	SPEncodingEUCKRKorean		= 180
+	SPEncodingEUCKRKorean		= 180,
+	SPEncodingUTF8MB4           = 190
 } SPEncodingTypes;
 
 // Table index type menu tags
@@ -216,6 +220,7 @@ typedef enum
 // Export file handle creation 
 typedef enum
 {
+	SPExportFileHandleInvalid = -1,
 	SPExportFileHandleCreated = 0,
 	SPExportFileHandleFailed  = 1,
 	SPExportFileHandleExists  = 2
@@ -255,6 +260,7 @@ extern NSString *SPFavoritesPasteboardDragType;
 extern NSString *SPContentFilterPasteboardDragType;
 extern NSString *SPNavigatorPasteboardDragType;
 extern NSString *SPNavigatorTableDataPasteboardDragType;
+extern NSString *SPExportCustomFileNameTokenPlistType;
 
 // File extensions
 extern NSString *SPFileExtensionDefault;
@@ -268,6 +274,13 @@ extern NSString *SPFavoritesDataFile;
 extern NSString *SPHTMLPrintTemplate;
 extern NSString *SPHTMLTableInfoPrintTemplate;
 extern NSString *SPHTMLHelpTemplate;
+extern NSString *SPPreferenceDefaultsFile;
+
+// SPF file types
+extern NSString *SPFExportSettingsContentType;
+extern NSString *SPFContentFiltersContentType;
+extern NSString *SPFQueryFavoritesContentType;
+extern NSString *SPFConnectionContentType;
 
 // Folder names
 extern NSString *SPThemesSupportFolder;
@@ -344,6 +357,7 @@ extern NSString *SPCustomQueryUpdateAutoHelp;
 extern NSString *SPCustomQueryAutoHelpDelay;
 extern NSString *SPCustomQueryHighlightCurrentQuery;
 extern NSString *SPCustomQueryEditorTabStopWidth;
+extern NSString *SPCustomQueryEditorCompleteWithBackticks;
 extern NSString *SPCustomQueryAutoComplete;
 extern NSString *SPCustomQueryAutoCompleteDelay;
 extern NSString *SPCustomQueryFunctionCompletionInsertsArguments;
@@ -357,6 +371,7 @@ extern NSString *SPLastUsedVersion;
 // GUI Prefs
 extern NSString *SPConsoleShowTimestamps;
 extern NSString *SPConsoleShowConnections;
+extern NSString *SPConsoleShowDatabases;
 extern NSString *SPConsoleShowSelectsAndShows;
 extern NSString *SPConsoleShowHelps;
 extern NSString *SPEditInSheetEnabled;
@@ -372,6 +387,8 @@ extern NSString *SPFavoritesSortedInReverse;
 extern NSString *SPAlwaysShowWindowTabBar;
 extern NSString *SPResetAutoIncrementAfterDeletionOfAllRows;
 extern NSString *SPFavoriteColorList;
+extern NSString *SPDisplayBinaryDataAsHex;
+extern NSString *SPMonospacedFontSize;
 
 // Hidden Prefs
 extern NSString *SPPrintWarningRowLimit;
@@ -387,10 +404,18 @@ extern NSString *SPCSVImportFieldEscapeCharacter;
 extern NSString *SPCSVImportFirstLineIsHeader;
 extern NSString *SPCSVFieldImportMappingAlignment;
 extern NSString *SPImportClipboardTempFileNamePrefix;
-extern NSString *SPSQLExportUseCompression;
-extern NSString *SPNoBOMforSQLdumpFile;
-extern NSString *SPExportLastDirectory;
-extern NSString *SPExportFilenameFormat;
+extern NSString *SPLastExportSettings;
+
+// Export filename tokens
+extern NSString *SPFileNameDatabaseTokenName;
+extern NSString *SPFileNameHostTokenName;
+extern NSString *SPFileNameDateTokenName;
+extern NSString *SPFileNameYearTokenName;
+extern NSString *SPFileNameMonthTokenName;
+extern NSString *SPFileNameDayTokenName;
+extern NSString *SPFileNameTimeTokenName;
+extern NSString *SPFileNameFavoriteTokenName;
+extern NSString *SPFileNameTableTokenName;
 
 // Misc
 extern NSString *SPContentFilters;
@@ -421,6 +446,8 @@ extern NSString *SPHiddenKeyFileVisibilityKey;
 extern NSString *SPSelectionDetailTypeIndexed;
 extern NSString *SPSelectionDetailTypePrimaryKeyed;
 extern NSString *SPSSHEnableMuxingPreference;
+extern NSString *SPSSHClientPath;
+extern NSString *SPSSLCipherListKey;
 
 // URLs
 extern NSString *SPDonationsURL;
@@ -479,7 +506,11 @@ extern NSString *SPFavoriteSSLCertificateFileLocationEnabledKey;
 extern NSString *SPFavoriteSSLCertificateFileLocationKey;
 extern NSString *SPFavoriteSSLCACertFileLocationEnabledKey;
 extern NSString *SPFavoriteSSLCACertFileLocationKey;
+extern NSString *SPFavoriteUseCompressionKey;
 extern NSString *SPConnectionFavoritesChangedNotification;
+
+extern NSString *SPFFormatKey;
+extern NSString *SPFVersionKey;
 
 // Favorites import/export
 extern NSString *SPFavoritesDataRootKey;
@@ -593,18 +624,74 @@ extern NSString *SPBundleShellVariableAllFunctions;
 extern NSString *SPBundleShellVariableAllViews;
 extern NSString *SPBundleShellVariableAllTables;
 
-extern const NSInteger SPBundleRedirectActionNone;
-extern const NSInteger SPBundleRedirectActionReplaceSection;
-extern const NSInteger SPBundleRedirectActionReplaceContent;
-extern const NSInteger SPBundleRedirectActionInsertAsText;
-extern const NSInteger SPBundleRedirectActionInsertAsSnippet;
-extern const NSInteger SPBundleRedirectActionShowAsHTML;
-extern const NSInteger SPBundleRedirectActionShowAsTextTooltip;
-extern const NSInteger SPBundleRedirectActionShowAsHTMLTooltip;
-extern const NSInteger SPBundleRedirectActionLastCode;
+extern NSString *SPCurrentTimestampPattern;
+
+typedef NS_ENUM(NSInteger, SPBundleRedirectAction) {
+	SPBundleRedirectActionNone                 = 200,
+	SPBundleRedirectActionReplaceSection       = 201,
+	SPBundleRedirectActionReplaceContent       = 202,
+	SPBundleRedirectActionInsertAsText         = 203,
+	SPBundleRedirectActionInsertAsSnippet      = 204,
+	SPBundleRedirectActionShowAsHTML           = 205,
+	SPBundleRedirectActionShowAsTextTooltip    = 207,
+	SPBundleRedirectActionShowAsHTMLTooltip    = 208,
+	SPBundleRedirectActionLastCode             = 208
+};
 
 // URL scheme
 extern NSString *SPURLSchemeQueryInputPathHeader;
 extern NSString *SPURLSchemeQueryResultPathHeader;
 extern NSString *SPURLSchemeQueryResultStatusPathHeader;
 extern NSString *SPURLSchemeQueryResultMetaPathHeader;
+
+extern NSString *SPCommonCryptoExceptionName;
+extern NSString *SPErrorDomain; // generic SP error domain for NSError
+
+typedef NS_ENUM(NSInteger,SPErrorCode) { // error codes in SPErrorDomain
+	/** When plist deserialization fails with nil return and no NSError or the returned object has the wrong type */
+	SPErrorWrongTypeOrNil = 110001,
+	/** Parsed data is syntactically correct, but semantically wrong (e.g. a SPF file with the wrong content format */
+	SPErrorWrongContentType = 110002,
+	/** Some data has a version that we don't know how to handle (can be used with e.g. SPF files, which have explicit version numbers) */
+	SPErrorWrongContentVersion = 110003,
+};
+
+#define SPAppDelegate ((SPAppController *)[NSApp delegate])
+
+// Provides a standard method for our "[x release], x = nil;" convention.
+// Yes, this could have been done with a preprocessor macro alone, however
+// a function works more nicely in the debugger and in production code
+// the optimizer will most likely remove all overhead by inlining anyway :)
+void _SPClear(id *addr);
+#define SPClear(x) _SPClear(&x)
+
+//Backwards compatibility
+#ifndef __MAC_10_7
+#define __MAC_10_7 1070
+#endif
+#ifndef __MAC_10_8
+#define __MAC_10_8 1080
+#endif
+#ifndef __MAC_10_10
+#define __MAC_10_10 101000
+#endif
+
+// This enum is available since 10.5 but only got a "name" in 10.10
+#if __MAC_OS_X_VERSION_MAX_ALLOWED < __MAC_10_10
+typedef NSUInteger NSCellHitResult;
+#endif
+
+// Stolen from Stack Overflow: http://stackoverflow.com/questions/969130
+#define SPLog(fmt, ...) NSLog((@"%s:%d: " fmt), __PRETTY_FUNCTION__, __LINE__, ##__VA_ARGS__)
+
+// See http://stackoverflow.com/questions/4415524
+#define COUNT_OF(x) (NSInteger)((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+
+// This definition is mostly for legibility
+#ifndef ESUCCESS
+	#define ESUCCESS 0
+#else
+	#if ESUCCESS != 0
+		#error 'ESUCCESS' must be defined as zero!
+	#endif
+#endif

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPExportFileUtilities.m
 //  sequel-pro
 //
@@ -28,15 +26,17 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPExportFileUtilities.h"
 #import "SPExportInitializer.h"
 #import "SPExporter.h"
-#import "SPAlertSheets.h"
 #import "SPExportFile.h"
 #import "SPDatabaseDocument.h"
 #import "SPCustomQuery.h"
+#import "SPTableContent.h"
+#import "SPTableContentDelegate.h"
+#import "SPExportController+SharedPrivateAPI.h"
 
 #import <SPMySQL/SPMySQL.h>
 
@@ -49,13 +49,10 @@ typedef enum
 SPExportErrorChoice;
 
 @interface SPExportController (SPExportFileUtilitiesPrivateAPI)
-
 - (void)_reopenExportSheet;
-- (void)sheetDidEnd:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo;
-
 @end
 
-@implementation SPExportController (SPExportFileUtilities)
+@implementation SPExportController (SPExportFileUtilitiesPrivateAPI)
 
 /**
  * Writes the CSV file header to the supplied export file.
@@ -105,7 +102,7 @@ SPExportErrorChoice;
 {
 	NSMutableString *header = [NSMutableString string];
 	
-	[header setString:@"<?xml version=\"1.0\"?>\n\n"];
+	[header setString:@"<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n\n"];
 	[header appendString:@"<!--\n-\n"];
 	[header appendString:@"- Sequel Pro XML dump\n"];
 	[header appendFormat:@"- %@ %@\n-\n", NSLocalizedString(@"Version", @"export header version label"), [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"]];
@@ -117,7 +114,7 @@ SPExportErrorChoice;
 	
 	if ([exportXMLFormatPopUpButton indexOfSelectedItem] == SPXMLExportMySQLFormat) {
 		
-		NSString *tag = @"";
+		NSString *tag;
 		
 		if (exportSource == SPTableExport) {
 			tag = [NSString stringWithFormat:@"<mysqldump xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n<database name=\"%@\">\n\n", [tableDocumentInstance database]];
@@ -132,7 +129,7 @@ SPExportErrorChoice;
 		[header appendFormat:@"<%@>\n\n", [[tableDocumentInstance database] HTMLEscapeString]];
 	}
 	
-	[file writeData:[header dataUsingEncoding:NSUTF8StringEncoding]];	
+	[file writeData:[header dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
 /**
@@ -143,6 +140,11 @@ SPExportErrorChoice;
  */
 - (void)errorCreatingExportFileHandles:(NSArray *)files
 {
+	// We don't know where "files" came from, but we know 2 things:
+	// - NSAlert will NOT retain it as contextInfo
+	// - This method continues execution after [alert beginSheet:...], thus even if files was retained before, it could be released before the alert ends
+	[files retain];
+
 	// Get the number of files that already exist as well as couldn't be created because of other reasons
 	NSUInteger filesAlreadyExisting = 0;
 	NSUInteger parentFoldersMissing = 0;
@@ -267,11 +269,10 @@ SPExportErrorChoice;
 		}
 	}
 
-	// Close the progress sheet
-	[NSApp endSheet:exportProgressWindow returnCode:0];
-	[exportProgressWindow orderOut:self];
+	[self _hideExportProgress];
 	
 	[alert beginSheetModalForWindow:[tableDocumentInstance parentWindow] modalDelegate:self didEndSelector:@selector(alertDidEnd:returnCode:contextInfo:) contextInfo:files];
+	[alert autorelease];
 }
 
 /**

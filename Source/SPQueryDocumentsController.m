@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPQueryDocumentsController.m
 //  sequel-pro
 //
@@ -28,10 +26,12 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPQueryDocumentsController.h"
 #import "SPCustomQuery.h"
+#import "SPAppController.h"
+#import "SPAppleScriptSupport.h"
 
 @implementation SPQueryController (SPQueryDocumentsController)
 
@@ -124,7 +124,7 @@
 #ifndef SP_CODA
 	// Check for multiple instance of the same document.
 	// Remove it if only one instance was registerd.
-	NSArray *allDocs = [[NSApp delegate] orderedDocuments];
+	NSArray *allDocs = [SPAppDelegate orderedDocuments];
 	NSMutableArray *allURLs = [NSMutableArray array];
 	
 	for (id doc in allDocs) 
@@ -204,7 +204,7 @@
 	}
 	
 	// Inform all opened documents to update the history list
-	for (id doc in [[NSApp delegate] orderedDocuments])
+	for (id doc in [SPAppDelegate orderedDocuments])
 	{
 		if([[doc valueForKeyPath:@"customQueryInstance"] respondsToSelector:@selector(historyItemsHaveBeenUpdated:)]) {
 			[[doc valueForKeyPath:@"customQueryInstance"] performSelectorOnMainThread:@selector(historyItemsHaveBeenUpdated:) withObject:self waitUntilDone:NO];
@@ -313,7 +313,7 @@
 	}
 #endif
 	
-	return [NSArray array];
+	return @[];
 }
 
 /**
@@ -356,7 +356,7 @@
 
 - (NSArray *)queryFavoritesForFileURL:(NSURL *)fileURL andTabTrigger:(NSString *)tabTrigger includeGlobals:(BOOL)includeGlobals
 {
-	if (![tabTrigger length]) return [NSArray array];
+	if (![tabTrigger length]) return @[];
 	
 	NSMutableArray *result = [[NSMutableArray alloc] init];
 	
@@ -391,7 +391,7 @@
  */
 - (NSArray*)functionList
 {
-	return (completionFunctionList != nil && [completionFunctionList count]) ? completionFunctionList : [NSArray array];
+	return (completionFunctionList != nil && [completionFunctionList count]) ? completionFunctionList : @[];
 }
 
 /**
@@ -399,7 +399,7 @@
  */
 - (NSArray*)keywordList
 {
-	return (completionKeywordList != nil && [completionKeywordList count]) ? completionKeywordList : [NSArray array];
+	return (completionKeywordList != nil && [completionKeywordList count]) ? completionKeywordList : @[];
 }
 
 /**

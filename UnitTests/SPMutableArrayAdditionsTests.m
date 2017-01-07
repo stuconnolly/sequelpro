@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMutableArrayAdditionsTests.m
 //  sequel-pro
 //
@@ -28,10 +26,22 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
-#import "SPMutableArrayAdditionsTests.h"
 #import "SPMutableArrayAdditions.h"
+
+#import <XCTest/XCTest.h>
+
+/**
+ * @class SPMutableArrayAdditionsTest SPMutableArrayAdditionsTest.h
+ *
+ * @author Stuart Connolly http://stuconnolly.com/
+ *
+ * SPMutableArrayAdditions tests class.
+ */
+@interface SPMutableArrayAdditionsTests : XCTestCase
+
+@end
 
 @implementation SPMutableArrayAdditionsTests
 
@@ -45,7 +55,7 @@
 	
 	[testArray reverse];
 	
-	STAssertEqualObjects(testArray, expectedArray, @"The reversed array should look like: %@, but actually looks like: %@", expectedArray, testArray);
+	XCTAssertEqualObjects(testArray, expectedArray, @"The reversed array should look like: %@, but actually looks like: %@", expectedArray, testArray);
 }
 
 @end

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPGrowlController.m
 //  sequel-pro
 //
@@ -28,11 +26,12 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPGrowlController.h"
 #import "SPDatabaseDocument.h"
 #import "SPWindowController.h"
+#import "SPAppController.h"
 
 #include <mach/mach_time.h>
 
@@ -100,7 +99,7 @@ static SPGrowlController *sharedGrowlController = nil;
 	[notificationDictionary setObject:description forKey:@"description"];
 	[notificationDictionary setObject:document forKey:@"document"];
 	[notificationDictionary setObject:name forKey:@"name"];
-	[notificationDictionary setObject:[NSDictionary dictionaryWithObject:[NSNumber numberWithUnsignedInteger:[document hash]] forKey:@"notificationDocumentHash"] forKey:@"clickContext"];
+	[notificationDictionary setObject:@{@"notificationDocumentHash" : @([document hash])} forKey:@"clickContext"];
 
 	[self performSelector:@selector(notifyWithObject:) withObject:notificationDictionary afterDelay:0.1];
 }
@@ -145,7 +144,7 @@ static SPGrowlController *sharedGrowlController = nil;
 			postNotification = YES;
 		}
 		
-		[timingNotificationName release], timingNotificationName = nil;
+		SPClear(timingNotificationName);
 	}
 
     // Post notification only if preference is set and visibility has been confirmed
@@ -169,16 +168,14 @@ static SPGrowlController *sharedGrowlController = nil;
 		NSUInteger documentHash = [[clickContext objectForKey:@"notificationDocumentHash"] unsignedIntegerValue];
 
 		// Loop through the windows, looking for the document
-		for (NSWindow *eachWindow in [NSApp orderedWindows]) 
+		for (NSWindow *eachWindow in [SPAppDelegate orderedDatabaseConnectionWindows])
 		{
-			if ([[eachWindow windowController] isKindOfClass:[SPWindowController class]]) {
-				for (SPDatabaseDocument *eachDocument in [[eachWindow windowController] documents]) 
-				{
-					if ([eachDocument hash] == documentHash) {
-						[NSApp activateIgnoringOtherApps:YES];
-						[eachDocument makeKeyDocument];
-						return;
-					}
+			for (SPDatabaseDocument *eachDocument in [[eachWindow windowController] documents])
+			{
+				if ([eachDocument hash] == documentHash) {
+					[NSApp activateIgnoringOtherApps:YES];
+					[eachDocument makeKeyDocument];
+					return;
 				}
 			}
 		}
@@ -194,7 +191,7 @@ static SPGrowlController *sharedGrowlController = nil;
 - (void)setVisibilityForNotificationName:(NSString *)name
 {
 	if (timingNotificationName) {
-		[timingNotificationName release], timingNotificationName = nil;
+		SPClear(timingNotificationName);
 	}
 	
 	timingNotificationName = [[NSString alloc] initWithString:name];

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPQueryConsoleDataSource.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPQueryConsoleDataSource.h"
 #import "SPConsoleMessage.h"
@@ -56,8 +54,12 @@ static NSUInteger SPMessageTruncateCharacterLength = 256;
 {
 #ifndef SP_CODA
 	NSString *returnValue = nil;
+
+	NSString *identifier = [tableColumn identifier];
+
+	if (!identifier) return returnValue;
 	
-	id object = [[messagesVisibleSet objectAtIndex:row] valueForKey:[tableColumn identifier]];
+	id object = [[messagesVisibleSet objectAtIndex:row] valueForKey:identifier];
 	
 	if ([[tableColumn identifier] isEqualToString:SPTableViewDateColumnID]) {
 		
@@ -70,7 +72,9 @@ static NSUInteger SPMessageTruncateCharacterLength = 256;
 		
 		returnValue = object;
 	}
-	
+
+	if (!returnValue) return returnValue;
+
 	NSMutableDictionary *stringAtributes = nil;
 	
 	if (consoleFont) {

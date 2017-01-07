@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoriteNode.h
 //  sequel-pro
 //
@@ -28,8 +26,9 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
+#import "SPNamedNode.h"
 /**
  * @class SPFavoriteNode SPFavoriteNode.h
  *
@@ -37,7 +36,7 @@
  *
  * Tree node the represents a connection favorite.
  */
-@interface SPFavoriteNode : NSObject <NSCopying, NSCoding>
+@interface SPFavoriteNode : NSObject <NSCopying, NSCoding, SPNamedNode>
 {	
 	NSMutableDictionary *nodeFavorite;
 }

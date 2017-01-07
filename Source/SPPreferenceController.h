@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPPreferenceController.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPreferencePaneProtocol.h"
 
@@ -63,7 +61,6 @@
 	NSToolbarItem *generalItem;
 	NSToolbarItem *notificationsItem;
 	NSToolbarItem *tablesItem;
-	NSToolbarItem *favoritesItem;
 	NSToolbarItem *autoUpdateItem;
 	NSToolbarItem *networkItem;
 	NSToolbarItem *editorItem;
@@ -86,8 +83,6 @@
 
 // Toolbar item IBAction methods
 - (IBAction)displayPreferencePane:(id)sender;
-- (IBAction)displayTablePreferences:(id)sender;
-- (IBAction)displayEditorPreferences:(id)sender;
 
 - (void)changeFont:(id)sender;
 

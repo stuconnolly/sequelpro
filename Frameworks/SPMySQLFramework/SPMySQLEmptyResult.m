@@ -28,7 +28,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPMySQLEmptyResult.h"
 
@@ -122,6 +122,11 @@
 }
 
 - (id)_stringWithBytes:(const void *)bytes length:(NSUInteger)length
+{
+	return nil;
+}
+
+- (NSString *)_lossyStringWithBytes:(const void *)bytes length:(NSUInteger)length wasLossy:(BOOL *)outLossy
 {
 	return nil;
 }

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPHistoryController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPDatabaseDocument.h"
 #import "SPTableContent.h"
@@ -73,8 +71,8 @@
 - (void) dealloc
 {
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
-	[tableContentStates release];
-	[history release];
+	SPClear(tableContentStates);
+	SPClear(history);
 	[super dealloc];
 }
 
@@ -278,7 +276,7 @@
 	NSUInteger contentPageNumber = [tableContentInstance pageNumber];
 	NSDictionary *contentSelectedRows = [tableContentInstance selectionDetailsAllowingIndexSelection:YES];
 	NSRect contentViewport = [tableContentInstance viewport];
-	NSDictionary *contentFilter = [tableContentInstance filterSettings];
+	NSDictionary *contentFilter = [[tableContentInstance onMainThread] filterSettings];
 	NSData *filterTableData = [tableContentInstance filterTableData];
 	if (!theDatabase) return;
 
@@ -387,7 +385,7 @@
 	// Start the task and perform the load
 	[theDocument startTaskWithDescription:NSLocalizedString(@"Loading history entry...", @"Loading history entry task desc")];
 	if ([NSThread isMainThread]) {
-		[NSThread detachNewThreadWithName:@"SPHistoryController load of history entry" target:self selector:@selector(loadEntryTaskWithPosition:) object:[NSNumber numberWithUnsignedInteger:position]];
+		[NSThread detachNewThreadWithName:SPCtxt(@"SPHistoryController load of history entry", theDocument) target:self selector:@selector(loadEntryTaskWithPosition:) object:[NSNumber numberWithUnsignedInteger:position]];
 	} else {
 		[self loadEntryTaskWithPosition:[NSNumber numberWithUnsignedInteger:position]];
 	}

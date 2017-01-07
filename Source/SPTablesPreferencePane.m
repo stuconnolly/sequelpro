@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTablesPreferencePane.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTablesPreferencePane.h"
 #import "SPPreferenceController.h"
@@ -56,10 +54,8 @@
  * Updates the displayed font according to the user's preferences.
  */
 - (void)updateDisplayedTableFontName
-{
-	NSFont *font = [NSUnarchiver unarchiveObjectWithData:[prefs dataForKey:SPGlobalResultTableFont]];
-	
-	[globalResultTableFontName setFont:font];
+{	
+	[globalResultTableFontName setFont:[NSUnarchiver unarchiveObjectWithData:[prefs dataForKey:SPGlobalResultTableFont]]];
 }
 
 #pragma mark -
@@ -93,6 +89,11 @@
 - (BOOL)preferencePaneAllowsResizing
 {
 	return NO;
+}
+
+- (void)preferencePaneWillBeShown
+{
+	[self updateDisplayedTableFontName];
 }
 
 @end

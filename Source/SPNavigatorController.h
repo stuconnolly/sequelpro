@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPNavigatorController.h
 //  sequel-pro
 //
@@ -28,9 +26,9 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
-@class SPNavigatorOutlineView, SPSplitView;
+@class SPNavigatorOutlineView, SPSplitView, SPDatabaseDocument;
 
 @interface SPNavigatorController : NSWindowController 
 {
@@ -81,7 +79,7 @@
 - (void)reloadAfterFiltering;
 - (IBAction)syncButtonAction:(id)sender;
 
-- (void)updateEntriesForConnection:(id)object;
+- (void)updateEntriesForConnection:(SPDatabaseDocument *)doc;
 - (NSString*)tableInfoLabelForIndex:(NSInteger)index ofType:(NSInteger)type;
 
 - (void)updateNavigator:(NSNotification *)aNotification;

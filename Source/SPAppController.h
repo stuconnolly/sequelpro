@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPAppController.h
 //  sequel-pro
 //
@@ -29,7 +27,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #ifndef SP_CODA
 #import <FeedbackReporter/FRFeedbackReporter.h>
@@ -40,12 +38,8 @@
 @class SPDatabaseDocument;
 @class SPBundleEditorController;
 
-@interface SPAppController : NSObject <FRFeedbackReporterDelegate, NSApplicationDelegate, NSOpenSavePanelDelegate>
+@interface SPAppController : NSObject <FRFeedbackReporterDelegate, NSApplicationDelegate, NSOpenSavePanelDelegate, NSFileManagerDelegate>
 {
-	IBOutlet NSWindow* bundleEditorWindow;
-
-	BOOL isNewFavorite;
-
 	SPAboutController *aboutController;
 	SPPreferenceController *prefsController;
 	SPBundleEditorController *bundleEditorController;

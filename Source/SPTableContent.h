@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableContent.h
 //  sequel-pro
 //
@@ -29,7 +27,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPDatabaseDocument;
 @class SPCopyTable;
@@ -50,6 +48,7 @@
 #ifndef SP_CODA
 @class SPSplitView;
 #endif
+@class SPTableContentFilterController;
 
 #import "SPDatabaseContentViewDelegate.h"
 
@@ -93,7 +92,10 @@
 	IBOutlet NSButton *paginationNextButton;
 #ifndef SP_CODA
 	IBOutlet NSView *contentViewPane;
+	IBOutlet NSViewController *paginationViewController;
 	IBOutlet NSView *paginationView;
+	IBOutlet NSBox *paginationBox;
+	NSPopover *paginationPopover;
 #endif
 	IBOutlet NSTextField *paginationPageField;
 #ifndef SP_CODA
@@ -112,6 +114,11 @@
 	IBOutlet NSButton *filterTableSearchAllFields;
 	IBOutlet NSPanel *filterTableSetDefaultOperatorSheet;
 	IBOutlet NSComboBox* filterTableSetDefaultOperatorValue;
+
+	// Temporary to avoid nib conflicts during WIP
+	IBOutlet SPSplitView *contentSplitView;
+
+	IBOutlet SPTableContentFilterController *filterControllerInstance;
 #endif
 	SPMySQLConnection *mySQLConnection;
 
@@ -176,6 +183,8 @@
 
 	NSColor *blackColor;
 	NSColor *lightGrayColor;
+	NSColor *blueColor;
+	NSColor *whiteColor;
 
 	SPFieldEditorController *fieldEditor;
 	NSRange fieldEditorSelectedRange;
@@ -274,7 +283,7 @@
 - (void)autosizeColumns;
 - (BOOL)saveRowOnDeselect;
 - (void)sortTableTaskWithColumn:(NSTableColumn *)tableColumn;
-- (void)showErrorSheetWith:(id)error;
+- (void)showErrorSheetWith:(NSArray *)error;
 - (void)processFieldEditorResult:(id)data contextInfo:(NSDictionary*)contextInfo;
 - (void)saveViewCellValue:(id)anObject forTableColumn:(NSTableColumn *)aTableColumn row:(NSUInteger)rowIndex;
 
@@ -296,7 +305,7 @@
 - (void)setFilterTableData:(NSData *)arcData;
 - (NSData *)filterTableData;
 
-- (NSString *)escapeFilterArgument:(NSString *)argument againstClause:(NSString *)clause;
+//- (NSString *)escapeFilterArgument:(NSString *)argument againstClause:(NSString *)clause;
 - (void)openContentFilterManager;
 
 - (NSArray *)fieldEditStatusForRow:(NSInteger)rowIndex andColumn:(NSInteger)columnIndex;

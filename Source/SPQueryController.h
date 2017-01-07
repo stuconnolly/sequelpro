@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPQueryController.h
 //  sequel-pro
 //
@@ -28,12 +26,13 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #ifndef SP_CODA /* constants */
 extern NSString *SPQueryConsoleWindowAutoSaveName;
 extern NSString *SPTableViewDateColumnID;
 extern NSString *SPTableViewConnectionColumnID;
+extern NSString *SPTableViewDatabaseColumnID;
 #endif
 
 @interface SPQueryController : NSWindowController 
@@ -44,22 +43,26 @@ extern NSString *SPTableViewConnectionColumnID;
 	IBOutlet NSSearchField *consoleSearchField;
 	IBOutlet NSTextField *loggingDisabledTextField;
 	IBOutlet NSProgressIndicator *progressIndicator;
-	IBOutlet NSButton *includeTimeStampsButton, *includeConnectionButton, *saveConsoleButton, *clearConsoleButton;
-	
-	NSFont *consoleFont;
-	NSMutableArray *messagesFullSet, *messagesFilteredSet, *messagesVisibleSet;
+	IBOutlet NSButton *includeTimeStampsButton;
+	IBOutlet NSButton *includeConnectionButton;
+	IBOutlet NSButton *includeDatabaseButton;
+	IBOutlet NSButton *saveConsoleButton;
+	IBOutlet NSButton *clearConsoleButton;
+
 	BOOL showSelectStatementsAreDisabled;
 	BOOL showHelpStatementsAreDisabled;
 	BOOL filterIsActive;
 	BOOL allowConsoleUpdate;
-	
+
+	NSFont *consoleFont;
 	NSMutableString *activeFilterString;
-	
+	NSMutableArray *messagesFullSet, *messagesFilteredSet, *messagesVisibleSet;
+
 	// DocumentsController
-	NSUInteger untitledDocumentCounter;
 	NSMutableDictionary *favoritesContainer;
 	NSMutableDictionary *historyContainer;
 	NSMutableDictionary *contentFilterContainer;
+	NSUInteger untitledDocumentCounter;
 	NSUInteger numberOfMaxAllowedHistory;
 #endif
 
@@ -86,6 +89,7 @@ extern NSString *SPTableViewConnectionColumnID;
 - (IBAction)saveConsoleAs:(id)sender;
 - (IBAction)toggleShowTimeStamps:(id)sender;
 - (IBAction)toggleShowConnections:(id)sender;
+- (IBAction)toggleShowDatabases:(id)sender;
 - (IBAction)toggleShowSelectShowStatements:(id)sender;
 - (IBAction)toggleShowHelpStatements:(id)sender;
 
@@ -94,8 +98,8 @@ extern NSString *SPTableViewConnectionColumnID;
 - (BOOL)allowConsoleUpdate;
 - (void)setAllowConsoleUpdate:(BOOL)allowUpdate;
 
-- (void)showMessageInConsole:(NSString *)message connection:(NSString *)connection;
-- (void)showErrorInConsole:(NSString *)error connection:(NSString *)connection;
+- (void)showMessageInConsole:(NSString *)message connection:(NSString *)connection database:(NSString *)database;
+- (void)showErrorInConsole:(NSString *)error connection:(NSString *)connection database:(NSString *)database;
 
 - (NSUInteger)consoleMessageCount;
 

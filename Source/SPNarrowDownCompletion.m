@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPNarrowDownCompletion.m
 //  sequel-pro
 //
@@ -30,7 +28,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import <Foundation/NSObjCRuntime.h>
 #import <tgmath.h>
@@ -161,18 +159,16 @@
 	[NSObject cancelPreviousPerformRequestsWithTarget:self];
 	if(stateTimer != nil) {
 		[stateTimer invalidate];
-		[stateTimer release];
-		stateTimer = nil;
+		SPClear(stateTimer);
 	}
-	if (staticPrefix) [staticPrefix release];
-	[mutablePrefix release];
-	[textualInputCharacters release];
-	[originalFilterString release];
-	if(syncArrowImages) [syncArrowImages release];
-	if(suggestions) [suggestions release];
-
-	if (filtered) [filtered release];
-	if (databaseStructureRetrieval) [databaseStructureRetrieval release];
+	SPClear(mutablePrefix);
+	SPClear(textualInputCharacters);
+	SPClear(originalFilterString);
+	if (staticPrefix)               SPClear(staticPrefix);
+	if (syncArrowImages)            SPClear(syncArrowImages);
+	if (suggestions)                SPClear(suggestions);
+	if (filtered)                   SPClear(filtered);
+	if (databaseStructureRetrieval) SPClear(databaseStructureRetrieval);
 
 	[super dealloc];
 }
@@ -183,8 +179,7 @@
 	// Invalidate the timer now to prevent retain cycles preventing deallocation
 	if (stateTimer != nil) {
 		[stateTimer invalidate];
-		[stateTimer release];
-		stateTimer = nil;
+		SPClear(stateTimer);
 	}
 
 	closeMe = YES;
@@ -206,9 +201,8 @@
 			isQueryingDatabaseStructure = NO;
 			if(stateTimer) {
 				[stateTimer invalidate];
-				[stateTimer release];
-				stateTimer = nil;
-				if(syncArrowImages) [syncArrowImages release], syncArrowImages = nil;
+				SPClear(stateTimer);
+				if(syncArrowImages) SPClear(syncArrowImages);
 				[self performSelectorOnMainThread:@selector(reInvokeCompletion) withObject:nil waitUntilDone:YES];
 				closeMe = YES;
 				return;
@@ -224,8 +218,7 @@
 {
 	if(stateTimer) {
 		[stateTimer invalidate];
-		[stateTimer release];
-		stateTimer = nil;
+		SPClear(stateTimer);
 	}
 	[theView setCompletionIsOpen:NO];
 	[self close];
@@ -296,7 +289,7 @@
 				for(NSUInteger i=0; i<maxLength; i++)
 					[dummy appendString:@" "];
 
-				CGFloat w = NSSizeToCGSize([dummy sizeWithAttributes:[NSDictionary dictionaryWithObject:tableFont forKey:NSFontAttributeName]]).width + 26.0f;
+				CGFloat w = NSSizeToCGSize([dummy sizeWithAttributes:@{NSFontAttributeName : tableFont}]).width + 26.0f;
 				maxWindowWidth = (w>maxWindowWidth) ? maxWindowWidth : w;
 			} else {
 				maxWindowWidth = 220;
@@ -448,7 +441,7 @@
 		} else {
 			if([[filtered objectAtIndex:rowIndex] objectForKey:@"list"]) {
 				NSMutableString *tt = [NSMutableString string];
-				[tt appendString:([[filtered objectAtIndex:rowIndex] objectForKey:@"type"]) ? [[filtered objectAtIndex:rowIndex] objectForKey:@"type"] : @""];
+				[tt appendStringOrNil:[[filtered objectAtIndex:rowIndex] objectForKey:@"type"]];
 				[tt appendString:@"\n"];
 				[tt appendString:NSLocalizedString(@"Type Declaration:", @"type declaration header")];
 				[tt appendString:@"\n"];
@@ -714,7 +707,7 @@
 				closeMe = YES;
 				return;
 			} else {
-				[newFiltered addObject:[NSDictionary dictionaryWithObjectsAndKeys:NSLocalizedString(@"No item found", @"no item found message"), @"display", @"", @"noCompletion", nil]];
+				[newFiltered addObject:@{@"display" : NSLocalizedString(@"No item found", @"no item found message"), @"noCompletion" : @""}];
 			}
 		}
 	}
@@ -727,7 +720,7 @@
 
 	// if fetching db structure add dummy row for displaying that info on top of the list
 	if(isQueryingDatabaseStructure)
-		[newFiltered insertObject:[NSDictionary dictionaryWithObjectsAndKeys:@"dummy", @"display", @"", @"noCompletion", nil] atIndex:0];
+		[newFiltered insertObject:@{@"display" : @"dummy", @"noCompletion" : @""} atIndex:0];
 
 	NSPoint old = NSMakePoint([self frame].origin.x, [self frame].origin.y + [self frame].size.height);
 
@@ -1032,7 +1025,7 @@
 				if (scanPosition + attributeResultRange.length == currentLength) break;
 
 				// A match was found - retrieve the location
-				NSUInteger matchStart = attributeResultRange.location+attributeResultRange.length;
+				NSUInteger matchStart = NSMaxRange(attributeResultRange);
 				if ([[theView textStorage] attribute:kSPAutoCompletePlaceholderName atIndex:matchStart longestEffectiveRange:&attributeResultRange inRange:NSMakeRange(matchStart, currentLength - matchStart)]) {
 					[theView shouldChangeTextInRange:attributeResultRange replacementString:@""];
 					[[theView textStorage] deleteCharactersInRange:attributeResultRange];
@@ -1126,7 +1119,11 @@
 			// Is completion string a schema name for current connection
 			if([selectedItem objectForKey:@"isRef"]) {
 				backtickMode = 100; // suppress move the caret one step rightwards
-				[self insert_text:[candidateMatch backtickQuotedString]];
+        if ([prefs boolForKey:SPCustomQueryEditorCompleteWithBackticks]) {
+          [self insert_text:[candidateMatch backtickQuotedString]];
+        } else {
+          [self insert_text:candidateMatch];
+        }
 			} else {
 				[self insert_text:candidateMatch];
 			}

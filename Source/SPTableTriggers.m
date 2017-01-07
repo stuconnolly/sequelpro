@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableTriggers.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTableTriggers.h"
 #import "SPDatabaseDocument.h"
@@ -48,6 +46,20 @@ static const NSString *SPTriggerStatement  = @"TriggerStatement";
 static const NSString *SPTriggerDefiner    = @"TriggerDefiner";
 static const NSString *SPTriggerCreated    = @"TriggerCreated";
 static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
+
+typedef NS_ENUM(NSInteger, SPTriggerActionTimeTag) {
+	SPTriggerActionTimeBeforeTag = 0,
+	SPTriggerActionTimeAfterTag  = 1
+};
+
+typedef NS_ENUM(NSInteger, SPTriggerEventTag) {
+	SPTriggerEventInsertTag = 0,
+	SPTriggerEventUpdateTag = 1,
+	SPTriggerEventDeleteTag = 2
+};
+
+static SPTriggerActionTimeTag TagForActionTime(NSString *mysql);
+static SPTriggerEventTag TagForEvent(NSString *mysql);
 
 @interface SPTableTriggers ()
 
@@ -82,24 +94,28 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
  */
 - (void)awakeFromNib
 {
+	prefs = [NSUserDefaults standardUserDefaults];
+
 	// Set the table triggers view's vertical gridlines if required
-	[triggersTableView setGridStyleMask:([[NSUserDefaults standardUserDefaults] boolForKey:SPDisplayTableViewVerticalGridlines]) ? NSTableViewSolidVerticalGridLineMask : NSTableViewGridNone];
+	[triggersTableView setGridStyleMask:[prefs boolForKey:SPDisplayTableViewVerticalGridlines] ? NSTableViewSolidVerticalGridLineMask : NSTableViewGridNone];
 
 	// Set the double-click action in blank areas of the table to create new rows
 	[triggersTableView setEmptyDoubleClickAction:@selector(addTrigger:)];
 
 	// Set the strutcture and index view's font
-	BOOL useMonospacedFont = [[NSUserDefaults standardUserDefaults] boolForKey:SPUseMonospacedFonts];
+	BOOL useMonospacedFont = [prefs boolForKey:SPUseMonospacedFonts];
+
+	CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
 
 	[addTriggerPanel setInitialFirstResponder:triggerNameTextField];
 	
 	for (NSTableColumn *column in [triggersTableView tableColumns])
 	{
-		[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+		[[column dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 	}
 
 	// Register as an observer for the when the UseMonospacedFonts preference changes
-	[[NSUserDefaults standardUserDefaults] addObserver:self forKeyPath:SPUseMonospacedFonts options:NSKeyValueObservingOptionNew context:NULL];
+	[prefs addObserver:self forKeyPath:SPUseMonospacedFonts options:NSKeyValueObservingOptionNew context:NULL];
 
 	[[NSNotificationCenter defaultCenter] addObserver:self
 											 selector:@selector(triggerStatementTextDidChange:)
@@ -197,7 +213,7 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 		if ([connection queryErrored]) {
 			SPBeginAlertSheet(NSLocalizedString(@"Unable to delete trigger", @"error deleting trigger message"),
 							  NSLocalizedString(@"OK", @"OK button"),
-							  nil, nil, [NSApp mainWindow], self, @selector(_reopenTriggerSheet:returnCode:contextInfo:), nil,
+							  nil, nil, [NSApp mainWindow], self, @selector(_reopenTriggerSheet:returnCode:contextInfo:), NULL,
 							  [NSString stringWithFormat:NSLocalizedString(@"The selected trigger couldn't be deleted.\n\nMySQL said: %@", @"error deleting trigger informative message"),
 							   [connection lastErrorMessage]]);
 			
@@ -206,18 +222,29 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 	}
 
 	NSString *triggerName       = [triggerNameTextField stringValue];
-	NSString *triggerActionTime = ([triggerActionTimePopUpButton indexOfSelectedItem]) ? @"AFTER" : @"BEFORE";
-	NSString *triggerEvent      = @"";
 	
-	switch ([triggerEventPopUpButton indexOfSelectedItem]) 
+	NSString *triggerActionTime = @"";
+	switch ([triggerActionTimePopUpButton selectedTag])
 	{
-		case 0:
+		case SPTriggerActionTimeBeforeTag:
+			triggerActionTime = @"BEFORE";
+			break;
+			
+		case SPTriggerActionTimeAfterTag:
+			triggerActionTime = @"AFTER";
+			break;
+	}
+	
+	NSString *triggerEvent      = @"";
+	switch ([triggerEventPopUpButton selectedTag])
+	{
+		case SPTriggerEventInsertTag:
 			triggerEvent = @"INSERT";
 			break;
-		case 1:
+		case SPTriggerEventUpdateTag:
 			triggerEvent = @"UPDATE";
 			break;
-		case 2:
+		case SPTriggerEventDeleteTag:
 			triggerEvent = @"DELETE";
 			break;
 	}
@@ -254,7 +281,7 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 
 		SPBeginAlertSheet(NSLocalizedString(@"Error creating trigger", @"error creating trigger message"),
 						  NSLocalizedString(@"OK", @"OK button"),
-						  nil, nil, [NSApp mainWindow], self, @selector(_reopenTriggerSheet:returnCode:contextInfo:), nil,
+						  nil, nil, [NSApp mainWindow], self, @selector(_reopenTriggerSheet:returnCode:contextInfo:), NULL,
 						  [NSString stringWithFormat:NSLocalizedString(@"The specified trigger was unable to be created.\n\nMySQL said: %@", @"error creating trigger informative message"),
 						   createTriggerError]);
 	}
@@ -333,8 +360,9 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 {
 	id value = [[triggerData objectAtIndex:rowIndex] objectForKey:[tableColumn identifier]];
 
-	if ([value isNSNull])
-		return [[NSUserDefaults standardUserDefaults] objectForKey:SPNullValue];
+	if ([value isNSNull]) {
+		return [prefs objectForKey:SPNullValue];
+	}
 
 	return value;
 }
@@ -397,11 +425,11 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 
 				if ([connection queryErrored]) {
 					[[alert window] orderOut:self];
-					SPBeginAlertSheet(NSLocalizedString(@"Unable to delete trigger", @"error deleting trigger message"),
-									  NSLocalizedString(@"OK", @"OK button"),
-									  nil, nil, [tableDocumentInstance parentWindow], nil, nil, nil,
-									  [NSString stringWithFormat:NSLocalizedString(@"The selected trigger couldn't be deleted.\n\nMySQL said: %@", @"error deleting trigger informative message"), [connection lastErrorMessage]]);
-
+					SPOnewayAlertSheet(
+						NSLocalizedString(@"Unable to delete trigger", @"error deleting trigger message"),
+						[tableDocumentInstance parentWindow],
+						[NSString stringWithFormat:NSLocalizedString(@"The selected trigger couldn't be deleted.\n\nMySQL said: %@", @"error deleting trigger informative message"), [connection lastErrorMessage]]
+					);
 					// Abort loop
 					break;
 				}
@@ -427,10 +455,11 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 	else if ([keyPath isEqualToString:SPUseMonospacedFonts]) {
 
 		BOOL useMonospacedFont = [[change objectForKey:NSKeyValueChangeNewKey] boolValue];
+		CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
 
 		for (NSTableColumn *column in [triggersTableView tableColumns])
 		{
-			[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+			[[column dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 		}
 
 		[triggersTableView reloadData];
@@ -527,23 +556,9 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 	[triggerNameTextField setStringValue:[trigger objectForKey:SPTriggerName]];
 	[triggerStatementTextView setString:[trigger objectForKey:SPTriggerStatement]];
 	
-	// Timin title is different then what we have saved in the database (case difference)
-	for (NSUInteger i = 0; i < [[triggerActionTimePopUpButton itemArray] count]; i++)
-	{
-		if ([[[triggerActionTimePopUpButton itemTitleAtIndex:i] uppercaseString] isEqualToString:[[trigger objectForKey:SPTriggerActionTime] uppercaseString]]) {
-			[triggerActionTimePopUpButton selectItemAtIndex:i];
-			break;
-		}
-	}
+	[triggerActionTimePopUpButton selectItemWithTag:TagForActionTime([trigger objectForKey:SPTriggerActionTime])];
 	
-	// Event title is different then what we have saved in the database (case difference)
-	for (NSUInteger i = 0; i < [[triggerEventPopUpButton itemArray] count]; i++)
-	{
-		if ([[[triggerEventPopUpButton itemTitleAtIndex:i] uppercaseString] isEqualToString:[[trigger objectForKey:SPTriggerEvent] uppercaseString]]) {
-			[triggerEventPopUpButton selectItemAtIndex:i];
-			break;
-		}
-	}
+	[triggerEventPopUpButton selectItemWithTag:TagForEvent([trigger objectForKey:SPTriggerEvent])];
 	
 	// Change button label from Add to Edit
 	[confirmAddTriggerButton setTitle:NSLocalizedString(@"Save", @"Save trigger button label")];
@@ -628,13 +643,34 @@ static const NSString *SPTriggerSQLMode    = @"TriggerSQLMode";
 
 - (void)dealloc
 {
-	[triggerData release], triggerData = nil;
-	[editedTrigger release], editedTrigger = nil;
+	SPClear(triggerData);
+	SPClear(editedTrigger);
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
-	[[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:SPUseMonospacedFonts];
+	[prefs removeObserver:self forKeyPath:SPUseMonospacedFonts];
 
 	[super dealloc];
 }
 
 @end
+
+#pragma mark -
+
+SPTriggerActionTimeTag TagForActionTime(NSString *mysql)
+{
+	NSString *uc = [mysql uppercaseString];
+	if([uc isEqualToString:@"BEFORE"]) return SPTriggerActionTimeBeforeTag;
+	if([uc isEqualToString:@"AFTER"])  return SPTriggerActionTimeAfterTag;
+	SPLog(@"Unknown trigger action time: %@",uc);
+	return -1;
+}
+
+SPTriggerEventTag TagForEvent(NSString *mysql)
+{
+	NSString *uc = [mysql uppercaseString];
+	if([uc isEqualToString:@"INSERT"]) return SPTriggerEventInsertTag;
+	if([uc isEqualToString:@"UPDATE"]) return SPTriggerEventUpdateTag;
+	if([uc isEqualToString:@"DELETE"]) return SPTriggerEventDeleteTag;
+	SPLog(@"Unknown trigger event: %@",uc);
+	return -1;
+}

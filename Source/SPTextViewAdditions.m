@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTextViewAdditions.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPAlertSheets.h"
 #import "SPTooltip.h"
@@ -249,7 +247,7 @@
 	// if no selection place the caret at the end of the current word
 	{
 		NSRange newRange = [self getRangeForCurrentWord];
-		[self setSelectedRange:NSMakeRange(newRange.location + newRange.length, 0)];
+		[self setSelectedRange:NSMakeRange(NSMaxRange(newRange), 0)];
 	}
 }
 
@@ -271,7 +269,7 @@
 	// if no selection place the caret at the end of the current word
 	{
 		NSRange newRange = [self getRangeForCurrentWord];
-		[self setSelectedRange:NSMakeRange(newRange.location + newRange.length, 0)];
+		[self setSelectedRange:NSMakeRange(NSMaxRange(newRange), 0)];
 	}
 }
 
@@ -293,7 +291,7 @@
 	// if no selection place the caret at the end of the current word
 	{
 		NSRange newRange = [self getRangeForCurrentWord];
-		[self setSelectedRange:NSMakeRange(newRange.location + newRange.length, 0)];
+		[self setSelectedRange:NSMakeRange(NSMaxRange(newRange), 0)];
 	}
 }
 
@@ -314,7 +312,7 @@
 	// if no selection place the caret at the end of the current word
 	{
 		NSRange newRange = [self getRangeForCurrentWord];
-		[self setSelectedRange:NSMakeRange(newRange.location + newRange.length, 0)];
+		[self setSelectedRange:NSMakeRange(NSMaxRange(newRange), 0)];
 	}
 	
 }
@@ -337,7 +335,7 @@
 	// if no selection place the caret at the end of the current word
 	{
 		NSRange newRange = [self getRangeForCurrentWord];
-		[self setSelectedRange:NSMakeRange(newRange.location + newRange.length, 0)];
+		[self setSelectedRange:NSMakeRange(NSMaxRange(newRange), 0)];
 	}
 }
 
@@ -513,7 +511,7 @@
 
 	NSInteger idx = [sender tag] - 1000000;
 	NSString *infoPath = nil;
-	NSArray *bundleItems = [[NSApp delegate] bundleItemsForScope:SPBundleScopeInputField];
+	NSArray *bundleItems = [SPAppDelegate bundleItemsForScope:SPBundleScopeInputField];
 	if(idx >=0 && idx < (NSInteger)[bundleItems count]) {
 		infoPath = [[bundleItems objectAtIndex:idx] objectForKey:SPBundleInternPathToFileKey];
 	} else {
@@ -655,15 +653,18 @@
 
 			if(inputFileError != nil) {
 				NSString *errorMessage  = [inputFileError localizedDescription];
-				SPBeginAlertSheet(NSLocalizedString(@"Bundle Error", @"bundle error"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [self window], self, nil, nil,
-								  [NSString stringWithFormat:@"%@ “%@”:\n%@", NSLocalizedString(@"Error for", @"error for message"), [cmdData objectForKey:@"name"], errorMessage]);
+				SPOnewayAlertSheet(
+					NSLocalizedString(@"Bundle Error", @"bundle error"),
+					[self window],
+					[NSString stringWithFormat:@"%@ “%@”:\n%@", NSLocalizedString(@"Error for", @"error for message"), [cmdData objectForKey:@"name"], errorMessage]
+				);
 				if (cmdData) [cmdData release];
 				return;
 			}
 
 			NSString *output = [SPBundleCommandRunner runBashCommand:cmd withEnvironment:env 
 											atCurrentDirectoryPath:nil 
-											callerInstance:[(SPAppController*)[NSApp delegate] frontDocument] 
+											callerInstance:[SPAppDelegate frontDocument]
 											contextInfo:[NSDictionary dictionaryWithObjectsAndKeys:
 													([cmdData objectForKey:SPBundleFileNameKey])?:@"-", @"name",
 													NSLocalizedString(@"Input Field", @"input field menu item label"), @"scope",
@@ -738,7 +739,7 @@
 							SPBundleHTMLOutputController *c = [[SPBundleHTMLOutputController alloc] init];
 							[c setWindowUUID:[cmdData objectForKey:SPBundleFileUUIDKey]];
 							[c displayHTMLContent:output withOptions:nil];
-							[[NSApp delegate] addHTMLOutputController:c];
+							[SPAppDelegate addHTMLOutputController:c];
 						}
 					}
 
@@ -774,8 +775,11 @@
 				}
 			} else if([err code] != 9) { // Suppress an error message if command was killed
 				NSString *errorMessage  = [err localizedDescription];
-				SPBeginAlertSheet(NSLocalizedString(@"BASH Error", @"bash error"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [self window], self, nil, nil,
-								  [NSString stringWithFormat:@"%@ “%@”:\n%@", NSLocalizedString(@"Error for", @"error for message"), [cmdData objectForKey:@"name"], errorMessage]);
+				SPOnewayAlertSheet(
+					NSLocalizedString(@"BASH Error", @"bash error"),
+					[self window],
+					[NSString stringWithFormat:@"%@ “%@”:\n%@", NSLocalizedString(@"Error for", @"error for message"), [cmdData objectForKey:@"name"], errorMessage]
+				);
 			}
 
 		}
@@ -802,12 +806,12 @@
 		[menu removeItem:bItem];
 	}
 
-	if ([[[(SPWindowController *)[[[NSApp delegate] frontDocumentWindow] delegate] selectedTableDocument] connectionID] isEqualToString:@"_"]) return menu;
+	if ([[[(SPWindowController *)[[SPAppDelegate frontDocumentWindow] delegate] selectedTableDocument] connectionID] isEqualToString:@"_"]) return menu;
 
-	[[NSApp delegate] reloadBundles:self];
+	[SPAppDelegate reloadBundles:self];
 
-	NSArray *bundleCategories = [[NSApp delegate] bundleCategoriesForScope:SPBundleScopeInputField];
-	NSArray *bundleItems = [[NSApp delegate] bundleItemsForScope:SPBundleScopeInputField];
+	NSArray *bundleCategories = [SPAppDelegate bundleCategoriesForScope:SPBundleScopeInputField];
+	NSArray *bundleItems = [SPAppDelegate bundleItemsForScope:SPBundleScopeInputField];
 
 	// Add 'Bundles' sub menu
 	if(bundleItems && [bundleItems count]) {
@@ -845,7 +849,7 @@
 			if([keyEq length])
 				[mItem setKeyEquivalentModifierMask:[[[item objectForKey:SPBundleFileKeyEquivalentKey] objectAtIndex:1] intValue]];
 
-			[mItem setTarget:[[NSApp mainWindow] firstResponder]];
+			[mItem setTarget:[[NSApp keyWindow] firstResponder]];
 
 			if([item objectForKey:SPBundleFileTooltipKey])
 				[mItem setToolTip:[item objectForKey:SPBundleFileTooltipKey]];

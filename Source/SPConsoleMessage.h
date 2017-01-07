@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPConsoleMessage.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @interface SPConsoleMessage : NSObject 
 {
@@ -36,16 +34,24 @@
 	NSDate *messageDate;
 	
 	NSString *message;
+	NSString *messageDatabase;
 	NSString *messageConnection;
 }
 
 @property (readwrite, assign) BOOL isError;
 @property (readwrite, retain) NSDate *messageDate;
 @property (readwrite, retain) NSString *message;
+@property (readwrite, retain) NSString *messageDatabase;
 @property (readwrite, retain) NSString *messageConnection;
 
-+ (SPConsoleMessage *)consoleMessageWithMessage:(NSString *)consoleMessage date:(NSDate *)date connection:(NSString *)connection;
++ (SPConsoleMessage *)consoleMessageWithMessage:(NSString *)consoleMessage
+										   date:(NSDate *)date
+									 connection:(NSString *)connection
+									   database:(NSString *)database;
 
-- (id)initWithMessage:(NSString *)message date:(NSDate *)date connection:(NSString *)connection;
+- (id)initWithMessage:(NSString *)message
+				 date:(NSDate *)date
+		   connection:(NSString *)connection
+			 database:(NSString *)database;
 
 @end

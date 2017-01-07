@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDataImport.h
 //  sequel-pro
 //
@@ -29,7 +27,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPMySQLConnection;
 
@@ -133,15 +131,13 @@ typedef enum {
 
 // Import methods
 - (void)importFile;
-- (void)importFileSheetDidEnd:(id)sheet returnCode:(NSInteger)returnCode contextInfo:(NSString *)contextInfo;
 - (void)importFromClipboard;
-- (void)importFromClipboardSheetDidEnd:(id)sheet returnCode:(NSInteger)returnCode contextInfo:(NSString *)contextInfo;
 - (void)importSQLFile:(NSString *)filename;
 - (void)startSQLImportProcessWithFile:(NSString *)filename;
 - (void)importCSVFile:(NSString *)filename;
 - (IBAction)changeFormat:(id)sender;
 - (BOOL)buildFieldMappingArrayWithData:(NSArray *)importData isPreview:(BOOL)dataIsPreviewData ofSoureFile:(NSString*)filename;
-- (void)fieldMapperDidEndSheet:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo;
+
 - (NSString *)mappedValueStringForRowArray:(NSArray *)csvRowArray;
 - (NSString *)mappedUpdateSetStatementStringForRowArray:(NSArray *)csvRowArray;
 

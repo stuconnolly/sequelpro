@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPPreferencePane.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPreferencePaneProtocol.h"
 
@@ -44,5 +42,5 @@
 {
 	NSUserDefaults *prefs;
 }
-
+- (void)preferencePaneWillBeShown;
 @end

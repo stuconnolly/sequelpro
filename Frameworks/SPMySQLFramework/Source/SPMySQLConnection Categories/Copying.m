@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Copying.m
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "Copying.h"
 
@@ -56,12 +54,14 @@
 	[copy setSocketPath:socketPath];
 	[copy setUseSSL:useSSL];
 	[copy setSslKeyFilePath:sslKeyFilePath];
+	[copy setSslCipherList:sslCipherList];
 	[copy setSslCertificatePath:sslCertificatePath];
 	[copy setSslCACertificatePath:sslCACertificatePath];
 	[copy setTimeout:timeout];
 	[copy setUseKeepAlive:useKeepAlive];
 	[copy setRetryQueriesOnConnectionFailure:retryQueriesOnConnectionFailure];
 	[copy setDelegateQueryLogging:delegateQueryLogging];
+	[copy setClientFlags:clientFlags];
 
 	// Active connection state details, like selected database and encoding, are *not* copied.
 

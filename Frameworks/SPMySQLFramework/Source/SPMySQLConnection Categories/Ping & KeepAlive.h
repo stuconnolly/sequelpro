@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Ping & KeepAlive.h
 //  SPMySQLFramework
 //
@@ -28,14 +26,14 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 // This class is private to the framework.
 
 typedef struct {
 	MYSQL	*mySQLConnection;
-	BOOL	*keepAlivePingActivePointer;
-	BOOL	*keepAliveLastPingSuccessPointer;
+	volatile BOOL *keepAlivePingThreadActivePointer;
+	volatile BOOL *keepAliveLastPingSuccessPointer;
 } SPMySQLConnectionPingDetails;
 
 @interface SPMySQLConnection (Ping_and_KeepAlive)
@@ -53,6 +51,6 @@ void _forceThreadExit(int signalNumber);
 void _pingThreadCleanup(void *pingDetails);
 
 // Cancellation
-- (void)_cancelKeepAlives;
+- (BOOL)_cancelKeepAlives;
 
 @end

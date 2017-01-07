@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableContentDelegate.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTableContentDelegate.h"
 #import "SPTableContentFilter.h"
@@ -79,7 +77,7 @@
 	[tableDocumentInstance startTaskWithDescription:NSLocalizedString(@"Sorting table...", @"Sorting table task description")];
 	
 	if ([NSThread isMainThread]) {
-		[NSThread detachNewThreadWithName:@"SPTableContent table sort task" target:self selector:@selector(sortTableTaskWithColumn:) object:tableColumn];
+		[NSThread detachNewThreadWithName:SPCtxt(@"SPTableContent table sort task", tableDocumentInstance) target:self selector:@selector(sortTableTaskWithColumn:) object:tableColumn];
 	} 
 	else {
 		[self sortTableTaskWithColumn:tableColumn];
@@ -120,7 +118,7 @@
 	[self updateCountText];
 	
 #ifndef SP_CODA /* triggered commands */
-	NSArray *triggeredCommands = [[NSApp delegate] bundleCommandsForTrigger:SPBundleTriggerActionTableRowChanged];
+	NSArray *triggeredCommands = [SPAppDelegate bundleCommandsForTrigger:SPBundleTriggerActionTableRowChanged];
 	
 	for (NSString *cmdPath in triggeredCommands) 
 	{
@@ -150,18 +148,18 @@
 			if (!correspondingWindowFound) stopTrigger = YES;
 		}
 		if (!stopTrigger) {
-			
+			id firstResponder = [[NSApp keyWindow] firstResponder];
 			if ([[data objectAtIndex:1] isEqualToString:SPBundleScopeGeneral]) {
-				[[[NSApp delegate] onMainThread] executeBundleItemForApp:aMenuItem];
+				[[SPAppDelegate onMainThread] executeBundleItemForApp:aMenuItem];
 			}
 			else if ([[data objectAtIndex:1] isEqualToString:SPBundleScopeDataTable]) {
-				if ([[[[[NSApp mainWindow] firstResponder] class] description] isEqualToString:@"SPCopyTable"]) {
-					[[[[NSApp mainWindow] firstResponder] onMainThread] executeBundleItemForDataTable:aMenuItem];
+				if ([[[firstResponder class] description] isEqualToString:@"SPCopyTable"]) {
+					[[firstResponder onMainThread] executeBundleItemForDataTable:aMenuItem];
 				}
 			}
 			else if ([[data objectAtIndex:1] isEqualToString:SPBundleScopeInputField]) {
-				if ([[[NSApp mainWindow] firstResponder] isKindOfClass:[NSTextView class]]) {
-					[[[[NSApp mainWindow] firstResponder] onMainThread] executeBundleItemForInputField:aMenuItem];
+				if ([firstResponder isKindOfClass:[NSTextView class]]) {
+					[[firstResponder onMainThread] executeBundleItemForInputField:aMenuItem];
 				}
 			}
 		}
@@ -237,11 +235,16 @@
 #endif
 		if (tableView == tableContentView) {
 			
+			// Nothing is editable while the field editor is running.
+			// This guards against a special case where accessibility services might
+			// check if a table field is editable while the sheet is running.
+			if (fieldEditor) return NO;
+			
 			// Ensure that row is editable since it could contain "(not loaded)" columns together with
 			// issue that the table has no primary key
 			NSString *wherePart = [NSString stringWithString:[self argumentForRow:[tableContentView selectedRow]]];
 			
-			if ([wherePart length] == 0) return NO;
+			if (![wherePart length]) return NO;
 			
 			// If the selected cell hasn't been loaded, load it.
 			if ([[tableValues cellDataAtRow:rowIndex column:[[tableColumn identifier] integerValue]] isSPNotLoaded]) {
@@ -252,8 +255,11 @@
 				SPMySQLResult *tempResult = [mySQLConnection queryString:query];
 				
 				if (![tempResult numberOfRows]) {
-					SPBeginAlertSheet(NSLocalizedString(@"Error", @"error"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [tableDocumentInstance parentWindow], self, nil, nil,
-									  NSLocalizedString(@"Couldn't load the row. Reload the table to be sure that the row exists and use a primary key for your table.", @"message of panel when loading of row failed"));
+					SPOnewayAlertSheet(
+						NSLocalizedString(@"Error", @"error"),
+						[tableDocumentInstance parentWindow],
+						NSLocalizedString(@"Couldn't load the row. Reload the table to be sure that the row exists and use a primary key for your table.", @"message of panel when loading of row failed")
+					);
 					return NO;
 				}
 				
@@ -263,11 +269,19 @@
 				[tableContentView reloadData];
 			}
 			
+			// Retrieve the column definition
+			NSDictionary *columnDefinition = [cqColumnDefinition objectAtIndex:[[tableColumn identifier] integerValue]];
+			
+			// TODO: Fix editing of "Display as Hex" columns and remove this (also see above)
+			if ([[columnDefinition objectForKey:@"typegrouping"] isEqualToString:@"binary"] && [prefs boolForKey:SPDisplayBinaryDataAsHex]) {
+				NSBeep();
+				[SPTooltip showWithObject:NSLocalizedString(@"Disable \"Display Binary Data as Hex\" in the View menu to edit this field.",@"Temporary : Tooltip shown when trying to edit a binary field in table content view while it is displayed using HEX conversion")];
+				return NO;
+			}
+			
 			// Open the editing sheet if required
-			if ([tableContentView shouldUseFieldEditorForRow:rowIndex column:[[tableColumn identifier] integerValue]]) {
+			if ([tableContentView shouldUseFieldEditorForRow:rowIndex column:[[tableColumn identifier] integerValue] checkWithLock:NULL]) {
 				
-				// Retrieve the column definition
-				NSDictionary *columnDefinition = [cqColumnDefinition objectAtIndex:[[tableColumn identifier] integerValue]];
 				BOOL isBlob = [tableDataInstance columnIsBlobOrText:[[tableColumn headerCell] stringValue]];
 				
 				// A table is per definition editable
@@ -279,12 +293,11 @@
 					isFieldEditable = [[editStatus objectAtIndex:0] integerValue] == 1;
 				}
 				
-				NSString *fieldType = nil;
 				NSUInteger fieldLength = 0;
 				NSString *fieldEncoding = nil;
 				BOOL allowNULL = YES;
 				
-				fieldType = [columnDefinition objectForKey:@"type"];
+				NSString *fieldType = [columnDefinition objectForKey:@"type"];
 				
 				if ([columnDefinition objectForKey:@"char_length"]) {
 					fieldLength = [[columnDefinition objectForKey:@"char_length"] integerValue];
@@ -298,8 +311,6 @@
 					fieldEncoding = [columnDefinition objectForKey:@"charset_name"];
 				}
 				
-				if(fieldEditor) [fieldEditor release], fieldEditor = nil;
-				
 				fieldEditor = [[SPFieldEditorController alloc] init];
 				
 				[fieldEditor setEditedFieldInfo:[NSDictionary dictionaryWithObjectsAndKeys:
@@ -309,14 +320,19 @@
 												 nil]];
 				
 				[fieldEditor setTextMaxLength:fieldLength];
-				[fieldEditor setFieldType:(fieldType==nil) ? @"" : fieldType];
-				[fieldEditor setFieldEncoding:(fieldEncoding==nil) ? @"" : fieldEncoding];
+				[fieldEditor setFieldType:fieldType == nil ? @"" : fieldType];
+				[fieldEditor setFieldEncoding:fieldEncoding == nil ? @"" : fieldEncoding];
 				[fieldEditor setAllowNULL:allowNULL];
-				
+			
 				id cellValue = [tableValues cellDataAtRow:rowIndex column:[[tableColumn identifier] integerValue]];
 				
 				if ([cellValue isNSNull]) {
 					cellValue = [NSString stringWithString:[prefs objectForKey:SPNullValue]];
+				}
+
+				if ([[columnDefinition objectForKey:@"typegrouping"] isEqualToString:@"binary"] && [prefs boolForKey:SPDisplayBinaryDataAsHex]) {
+					[fieldEditor setTextMaxLength:[[self tableView:tableContentView objectValueForTableColumn:tableColumn row:rowIndex] length]];
+					isFieldEditable = NO;
 				}
 				
 				NSInteger editedColumn = 0;
@@ -366,10 +382,10 @@
 		else {
 			tmp = [tableContentView draggedRowsAsTabString];
 		}
-		
-		if (!tmp && [tmp length])
+
+		if (tmp && [tmp length])
 		{
-			[pboard declareTypes:[NSArray arrayWithObjects: NSTabularTextPboardType, NSStringPboardType, nil] owner:nil];
+			[pboard declareTypes:@[NSTabularTextPboardType, NSStringPboardType] owner:nil];
 			
 			[pboard setString:tmp forType:NSStringPboardType];
 			[pboard setString:tmp forType:NSTabularTextPboardType];
@@ -467,6 +483,7 @@
 			
 			BOOL cellIsNullOrUnloaded = NO;
 			BOOL cellIsLinkCell = [cell isMemberOfClass:[SPTextAndLinkCell class]];
+
 			NSUInteger columnIndex = [[tableColumn identifier] integerValue];
 			
 			// If user wants to edit 'cell' set text color to black and return to avoid
@@ -494,20 +511,32 @@
 			else {
 				cellIsNullOrUnloaded = [tableValues cellIsNullOrUnloadedAtRow:rowIndex column:columnIndex];
 			}
-			
-			
+
 			if (cellIsNullOrUnloaded) {
-				[cell setTextColor:lightGrayColor];
+				[cell setTextColor:rowIndex == [tableContentView selectedRow] ? whiteColor : lightGrayColor];
 			} 
 			else {
 				[cell setTextColor:blackColor];
+			}
+
+			NSDictionary *columnDefinition = [[(id <SPDatabaseContentViewDelegate>)[tableContentView delegate] dataColumnDefinitions] objectAtIndex:columnIndex];
+
+			NSString *columnType = [columnDefinition objectForKey:@"typegrouping"];
+
+			// Find a more reliable way of doing this check
+			if ([columnType isEqualToString:@"binary"] &&
+				[prefs boolForKey:SPDisplayBinaryDataAsHex] &&
+				[[self tableView:tableContentView objectValueForTableColumn:tableColumn row:rowIndex] hasPrefix:@"0x"]) {
+
+				[cell setTextColor:rowIndex == [tableContentView selectedRow] ? whiteColor : blueColor];
 			}
 
 			// Disable link arrows for the currently editing row and for any NULL or unloaded cells
 			if (cellIsLinkCell) {
 				if (cellIsNullOrUnloaded || [tableView editedRow] == rowIndex) {
 					[cell setLinkActive:NO];
-				} else {
+				}
+				else {
 					[cell setLinkActive:YES];
 				}
 			}
@@ -627,7 +656,7 @@
  */
 - (CGFloat)splitView:(NSSplitView *)sender constrainMinCoordinate:(CGFloat)proposedMin ofSubviewAt:(NSInteger)offset
 {
-	return proposedMin + 200;
+	return proposedMin + 225;
 }
 
 /**
@@ -685,8 +714,8 @@
 
 /**
  * If the user selected a table cell which is a blob field and tried to edit it
- * cancel the fieldEditor, display the field editor sheet instead for editing
- * and re-enable the fieldEditor after editing.
+ * cancel the inline edit, display the field editor sheet instead for editing
+ * and re-enable inline editing after closing the sheet.
  */
 - (BOOL)control:(NSControl *)control textShouldBeginEditing:(NSText *)aFieldEditor
 {	
@@ -736,13 +765,14 @@
 	}
 	
 	// Open the field editor sheet if required
-	if ([tableContentView shouldUseFieldEditorForRow:row column:column])
+	if ([tableContentView shouldUseFieldEditorForRow:row column:column checkWithLock:NULL])
 	{
 		[tableContentView setFieldEditorSelectedRange:[aFieldEditor selectedRange]];
 		
 		// Cancel editing
 		[control abortEditing];
 		
+		NSAssert(fieldEditor == nil, @"Method should not to be called while a field editor sheet is open!");
 		// Call the field editor sheet
 		[self tableView:tableContentView shouldEditTableColumn:NSArrayObjectAtIndex([tableContentView tableColumns], column) row:row];
 		

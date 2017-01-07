@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDataAdditions.m
 //  sequel-pro
 //
@@ -32,88 +30,217 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPDataAdditions.h"
 
 #include <zlib.h>
-#include <openssl/aes.h>
-#include <openssl/sha.h>
+#include <CommonCrypto/CommonCrypto.h>
+#include <stdlib.h>
+#import "SPFunctions.h"
+
+/** Limit an NSUInteger to unsigned 32 bit max.
+ * @return Whatever is smaller: UINT32_MAX or i
+ *
+ * This is pretty much a NOOP on 32 bit platforms.
+ */
+uint32_t LimitUInt32(NSUInteger i);
+
+#pragma mark -
 
 @implementation NSData (SPDataAdditions)
+
+- (NSData *)sha1Hash
+{
+	unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+	
+	//let's do it as a one step operation, if it fits
+	if([self length] <= UINT32_MAX) {
+		CC_SHA1([self bytes], (uint32_t)[self length], digest);
+	}
+	// or multi-step if length > 32 bit
+	else {
+		CC_SHA1_CTX ctx;
+		CC_SHA1_Init(&ctx);
+		
+		NSUInteger offset = 0;
+		uint32_t len;
+		while((len = LimitUInt32([self length]-offset)) > 0) {
+			CC_SHA1_Update(&ctx, ([self bytes]+offset), len);
+			offset += len;
+		}
+		
+		CC_SHA1_Final(digest, &ctx);
+	}
+	
+	return [NSData dataWithBytes:digest length:CC_SHA1_DIGEST_LENGTH];
+}
 
 - (NSData *)dataEncryptedWithPassword:(NSString *)password
 {
 	// Create a random 128-bit initialization vector
-	srand((unsigned int)time(NULL));
-	NSInteger ivIndex;
-	unsigned char iv[16];
-	for (ivIndex = 0; ivIndex < 16; ivIndex++)
-		iv[ivIndex] = rand() & 0xff;
+	// IV is block "-1" of plaintext data, therefore it is blockSize long
+	unsigned char iv[kCCBlockSizeAES128];
+	if(SPBetterRandomBytes(iv,sizeof(iv)) != 0)
+		@throw [NSException exceptionWithName:NSInternalInconsistencyException
+									   reason:@"Getting random data bytes failed!"
+									 userInfo:@{@"errno":@(errno)}];
 
+	NSData *ivData = [NSData dataWithBytes:iv length:sizeof(iv)];
+	
+	// Create the key from first 128-bits of the 160-bit password hash
+	NSData *passwordDigest = [[[password dataUsingEncoding:NSUTF8StringEncoding] sha1Hash] subdataWithRange:NSMakeRange(0, kCCKeySizeAES128)];
+	
+	return [self dataEncryptedWithKey:passwordDigest IV:ivData];
+}
+
+/*
+ * ABNF for the returned data:
+ *   OCTET     = <any 8-bit sequence of data>
+ *   ENCRYPTED = IV AES
+ *   IV        = 16OCTET                  ; 16 random bytes
+ *   AES       = <AES_128_CBC(PADDED)>
+ *   PADDED    = PLAINTEXT 12*28OCTET LEN ; 13-28 bytes padding (value irrelevant)
+ *   PLAINTEXT = *OCTET                   ; the raw data
+ *   LEN       = 4OCTET                   ; big endian length of plaintext
+ *
+ * Examples for padding:
+ *   Data len  padding  len   = total
+ *   --------- -------- ----- --------
+ *   0         28       4     32
+ *   1         27       4     32
+ *   ...
+ *   15        13       4     32
+ *   16        28       4     48
+ *   17        27       4     48
+ *   ...
+ *
+ *   Note that total has to be a multiple of 16 for AES 128.
+ *   Our padding scheme also requires 4 bytes of storage for len.
+ *   This is were the 32 comes from: Without that 15 data bytes would produce
+ *   only 1 padding byte, which is not enough to store the 4 byte len.
+ */
+- (NSData *)dataEncryptedWithKey:(NSData *)aesKey IV:(NSData *)iv
+{
+	if([self length] > UINT32_MAX)
+		@throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Length of NSData exceeds 32 Bit, not supported!" userInfo:nil];
+	
+	if([iv length] != kCCBlockSizeAES128)
+		@throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Length of ivData must be == kCCBlockSizeAES128!" userInfo:nil];
+
+	if([aesKey length] != kCCKeySizeAES128)
+		@throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Key length invalid. Must be kCCKeySizeAES128 bytes!" userInfo:nil];
+		
 	// Calculate the 16-byte AES block padding
-	NSInteger dataLength = [self length];
-	NSInteger paddedLength = dataLength + (32 - (dataLength % 16));
-	NSInteger totalLength = paddedLength + 16; // Data plus IV
-
+	uint32_t dataLength = (uint32_t)[self length];
+	NSInteger paddedLength = dataLength + (2*kCCBlockSizeAES128 - (dataLength % kCCBlockSizeAES128));
+	NSInteger totalLength = paddedLength + kCCBlockSizeAES128; // Data plus IV
+	
 	// Allocate enough space for the IV + ciphertext
 	unsigned char *encryptedBytes = calloc(1, totalLength);
 	// The first block of the ciphertext buffer is the IV
-	memcpy(encryptedBytes, iv, 16);
+	memcpy(encryptedBytes, [iv bytes], kCCBlockSizeAES128);
 
-	unsigned char *paddedBytes = calloc(1, paddedLength);
+	unsigned char *paddedBytes = encryptedBytes + kCCBlockSizeAES128;
 	memcpy(paddedBytes, [self bytes], dataLength);
 
 	// The last 32-bit chunk is the size of the plaintext, which is encrypted with the plaintext
-	NSInteger bigIntDataLength = NSSwapHostIntToBig((unsigned int)dataLength);
-	memcpy(paddedBytes + (paddedLength - 4), &bigIntDataLength, 4);
+	uint32_t bigIntDataLength = NSSwapHostIntToBig(dataLength);
+	unsigned char *lenPtr = paddedBytes + (paddedLength - 4);
+	memcpy(lenPtr, &bigIntDataLength, 4);
 
-	// Create the key from first 128-bits of the 160-bit password hash
-	unsigned char passwordDigest[20];
-	SHA1((const unsigned char *)[password UTF8String], strlen([password UTF8String]), passwordDigest);
-	AES_KEY aesKey;
-	AES_set_encrypt_key(passwordDigest, 128, &aesKey);
-
-	// AES-128-cbc encrypt the data, filling in the buffer after the IV
-	AES_cbc_encrypt(paddedBytes, encryptedBytes + 16, paddedLength, &aesKey, iv, AES_ENCRYPT);
-	free(paddedBytes);
-
+	CCCryptorStatus res = CCCrypt(
+			kCCEncrypt,         // operation mode
+			kCCAlgorithmAES128, // algorithm
+			0,                  // options. We use our own padding algorithm and CBC is the default
+			[aesKey bytes],     // key bytes
+			kCCKeySizeAES128,   // key length
+			[iv bytes],         // iv bytes (length == block size)
+			paddedBytes,        // raw data
+			paddedLength,       // length of raw data
+			paddedBytes,        // output buffer. overwriting input is OK
+			paddedLength,       // output buffer size
+			NULL                // number of bytes written. not relevant here
+	);
+	
+	if(res != kCCSuccess)
+		@throw [NSException exceptionWithName:SPCommonCryptoExceptionName
+									   reason:[NSString stringWithFormat:@"CCCrypt() failed! (CCCryptorStatus=%d)",res]
+									 userInfo:@{@"cryptorStatus":@(res)}];
+	
+	// the return code of CCCrypt() is not always reliable, better check it again
+	if(memcmp(lenPtr, &bigIntDataLength, 4) == 0)
+		@throw [NSException exceptionWithName:NSInternalInconsistencyException reason:@"Encrypted data is same as plaintext data!" userInfo:nil];
+	
 	return [NSData dataWithBytesNoCopy:encryptedBytes length:totalLength];
 }
 
 - (NSData *)dataDecryptedWithPassword:(NSString *)password
 {
 	// Create the key from the password hash
-	unsigned char passwordDigest[20];
-	SHA1((const unsigned char *)[password UTF8String], strlen([password UTF8String]), passwordDigest);
+	NSData *passwordDigest = [[[password dataUsingEncoding:NSUTF8StringEncoding] sha1Hash] subdataWithRange:NSMakeRange(0, kCCKeySizeAES128)];
+	
+	return [self dataDecryptedWithKey:passwordDigest];
 
-	// AES-128-cbc decrypt the data
-	AES_KEY aesKey;
-	AES_set_decrypt_key(passwordDigest, 128, &aesKey);
+}
+
+- (NSData *)dataDecryptedWithKey:(NSData *)aesKey
+{
+	if([aesKey length] != kCCKeySizeAES128)
+		@throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Key length invalid. Must be kCCKeySizeAES128 bytes!" userInfo:nil];
+	
+	if([self length] < (2*kCCBlockSizeAES128) || [self length] > UINT32_MAX)
+		@throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Length of encrypted NSData must be in range 32 to 2^32!" userInfo:nil];
 
 	// Total length = encrypted length + IV
-	NSInteger totalLength = [self length];
-	NSInteger encryptedLength = totalLength - 16;
+	NSUInteger totalLength = [self length];
+	NSUInteger encryptedLength = totalLength - kCCBlockSizeAES128; // >=0 ensured above
 
 	// Take the IV from the first 128-bit block
-	unsigned char iv[16];
-	memcpy(iv, [self bytes], 16);
+	unsigned char iv[kCCBlockSizeAES128];
+	memcpy(iv, [self bytes], kCCBlockSizeAES128);
 
 	// Decrypt the data
-	unsigned char *decryptedBytes = (unsigned char*)malloc(encryptedLength);
-	AES_cbc_encrypt([self bytes] + 16, decryptedBytes, encryptedLength, &aesKey, iv, AES_DECRYPT);
+	unsigned char *decryptedBytes = calloc(1,encryptedLength);
+	
+	CCCryptorStatus res = CCCrypt(
+			kCCDecrypt,                          // operation mode
+			kCCAlgorithmAES128,                  // algorithm
+			0,                                   // options. We use our own padding algorithm and CBC is the default
+			[aesKey bytes],                      // key bytes
+			kCCKeySizeAES128,                    // key length
+			iv,                                  // iv bytes (length == block size)
+			([self bytes] + kCCBlockSizeAES128), // raw data
+			encryptedLength,                     // length of raw data
+			decryptedBytes,                      // output buffer. overwriting input is OK
+			encryptedLength,                     // output buffer size
+			NULL                                 // number of bytes written. not relevant here
+	);
+	
+	if(res != kCCSuccess) {
+		@throw [NSException exceptionWithName:SPCommonCryptoExceptionName
+									   reason:[NSString stringWithFormat:@"CCCrypt() failed! (CCCryptorStatus=%d)",res]
+									 userInfo:@{@"cryptorStatus":@(res)}];
+	}
 
 	// If decryption was successful, these blocks will be zeroed
 	if ( *((UInt32*)decryptedBytes + ((encryptedLength / 4) - 4)) ||
 		 *((UInt32*)decryptedBytes + ((encryptedLength / 4) - 3)) ||
 		 *((UInt32*)decryptedBytes + ((encryptedLength / 4) - 2)) )
 	{
+		free(decryptedBytes);
 		return nil;
 	}
 
 	// Get the size of the data from the last 32-bit chunk
-	NSInteger bigIntDataLength = *((UInt32*)decryptedBytes + ((encryptedLength / 4) - 1));
-	NSInteger dataLength = NSSwapBigIntToHost((unsigned int)bigIntDataLength);
+	uint32_t bigIntDataLength = *((UInt32*)decryptedBytes + ((encryptedLength / sizeof(UInt32)) - 1));
+	uint32_t dataLength = NSSwapBigIntToHost(bigIntDataLength);
+	
+	if(dataLength >= (encryptedLength-sizeof(UInt32))) { //this way dataLength can still reach into padding, but we own that memory anyway.
+		@throw [NSException exceptionWithName:NSInternalInconsistencyException
+									   reason:[NSString stringWithFormat:@"dataLength=%u exceeds encryptedLength=%lu! Either the message is incomplete, decrypting resulted in invalid data, or this is a malicious message!",dataLength,encryptedLength]
+									 userInfo:nil];
+	}
 
 	return [NSData dataWithBytesNoCopy:decryptedBytes length:dataLength];
 }
@@ -175,11 +302,9 @@
 
 	if (deflateInit(&zlibStream, Z_DEFAULT_COMPRESSION) != Z_OK) return nil;
 
-
 	NSMutableData *zipData = [NSMutableData dataWithLength:16384];
 
-	do{
-
+	do {
 		if (zlibStream.total_out >= [zipData length])
 			[zipData increaseLengthBy: 16384];
 
@@ -188,11 +313,13 @@
 
 		deflate(&zlibStream, Z_FINISH);
 
-	} while(zlibStream.avail_out == 0);
+	}
+	while(zlibStream.avail_out == 0);
 
 	deflateEnd(&zlibStream);
 
 	[zipData setLength: zlibStream.total_out];
+
 	return [NSData dataWithData: zipData];
 }
 
@@ -206,7 +333,8 @@
 	NSUInteger dataLength = [self length];
 	NSMutableString *hexString = [NSMutableString string];
 
-	for (i = 0; i < dataLength; i++) {
+	for (i = 0; i < dataLength; i++)
+	{
 		[hexString appendFormat:@"%02X", bytes[i]];
 	}
 
@@ -247,7 +375,7 @@
 			buffLength = totalLength - i;
 		}
 
-		buffer = (unsigned char*) malloc( sizeof(unsigned char) * buffLength + 1);
+		buffer = (unsigned char*) calloc(buffLength + 1, sizeof(unsigned char));
 
 		[self getBytes:buffer range:NSMakeRange(i, buffLength)];
 
@@ -310,4 +438,62 @@
 	return string;
 }
 
+- (void)enumerateLinesBreakingAt:(SPLineTerminator)lbChars withBlock:(void (^)(NSRange line,BOOL *stop))block
+{
+	if(lbChars == SPLineTerminatorAny) lbChars = SPLineTerminatorCR|SPLineTerminatorLF|SPLineTerminatorCRLF;
+	
+	const uint8_t *bytes = [self bytes];
+	NSUInteger length = [self length];
+	
+	NSUInteger curStart = 0;
+	SPLineTerminator terminatorFound = 0;
+	NSUInteger i;
+	for (i = 0; i < length; i++) {
+		uint8_t chr = bytes[i];
+		// if looking for cr and/or crlf we look for cr otherwise for lf
+		if(((lbChars & SPLineTerminatorCRLF) || (lbChars & SPLineTerminatorCR)) && chr == '\r') {
+			//if we are looking for CRLF check for the following LF
+			if((lbChars & SPLineTerminatorCRLF) && ((i+1) < length) && bytes[i+1] == '\n') {
+				terminatorFound = SPLineTerminatorCRLF;
+			}
+			//if we were looking for CR we've found one
+			else if((lbChars & SPLineTerminatorCR)) {
+				terminatorFound = SPLineTerminatorCR;
+			}
+		}
+		else if((lbChars & SPLineTerminatorLF) && chr == '\n') {
+			terminatorFound = SPLineTerminatorLF;
+		}
+		// no linebreak yet ?
+		if(!terminatorFound) continue;
+		
+		// found one. call the block.
+		BOOL stop = NO;
+		NSRange lineRange = NSMakeRange(curStart, (i-curStart));
+		block(lineRange,&stop);
+		if(stop) return;
+		
+		// reset vars for next line
+		if(terminatorFound == SPLineTerminatorCRLF) i++; //skip the \n in CRLF
+		curStart = (i+1);
+		terminatorFound = 0;
+	}
+	// there could we one unterminated line left in buffer
+	if(curStart < i) {
+		NSRange lineRange = NSMakeRange(curStart, (i-curStart));
+		BOOL iDontCare = NO;
+		block(lineRange,&iDontCare);
+	}
+}
+
 @end
+
+#pragma mark -
+
+uint32_t LimitUInt32(NSUInteger i) {
+#if NSUIntegerMax > UINT32_MAX
+	return (i > UINT32_MAX)? UINT32_MAX : (uint32_t)i;
+#else
+	return i;
+#endif
+}

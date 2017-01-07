@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMenuAdditionsTests.m
 //  sequel-pro
 //
@@ -28,10 +26,25 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
-#import "SPMenuAdditionsTests.h"
 #import "SPMenuAdditions.h"
+
+#import <XCTest/XCTest.h>
+
+/**
+ * @class SPMenuAdditionsTests SPMenuAdditionsTests.h
+ *
+ * @author Stuart Connolly http://stuconnolly.com/
+ *
+ * SPMenuAdditionsTests tests class.
+ */
+@interface SPMenuAdditionsTests : XCTestCase
+{
+	NSMenu *menu;
+}
+
+@end
 
 static NSString *SPTestMenuItemTitle = @"Menu Item";
 
@@ -58,7 +71,7 @@ static NSString *SPTestMenuItemTitle = @"Menu Item";
 {
 	[menu compatibleRemoveAllItems];
 	
-	STAssertFalse([menu numberOfItems], @"The menu should have no menu items.");
+	XCTAssertFalse([menu numberOfItems], @"The menu should have no menu items.");
 }
 
 @end

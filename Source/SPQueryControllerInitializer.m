@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPQueryControllerInitializer.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPQueryControllerInitializer.h"
 
@@ -59,6 +57,7 @@ static NSString *SPCompletionTokensSnippetsKey = @"function_argument_snippets";
 	// Show/hide table columns
 	[[consoleTableView tableColumnWithIdentifier:SPTableViewDateColumnID] setHidden:![prefs boolForKey:SPConsoleShowTimestamps]];
 	[[consoleTableView tableColumnWithIdentifier:SPTableViewConnectionColumnID] setHidden:![prefs boolForKey:SPConsoleShowConnections]];
+	[[consoleTableView tableColumnWithIdentifier:SPTableViewDatabaseColumnID] setHidden:![prefs boolForKey:SPConsoleShowDatabases]];
 	
 	showSelectStatementsAreDisabled = ![prefs boolForKey:SPConsoleShowSelectsAndShows];
 	showHelpStatementsAreDisabled = ![prefs boolForKey:SPConsoleShowHelps];
@@ -80,10 +79,11 @@ static NSString *SPCompletionTokensSnippetsKey = @"function_argument_snippets";
 	
 	// Set the strutcture and index view's font
 	BOOL useMonospacedFont = [prefs boolForKey:SPUseMonospacedFonts];
-	
+	CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
 	for (NSTableColumn *column in [consoleTableView tableColumns])
 	{
-		[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+		[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 	}
 #endif
 }
@@ -136,7 +136,7 @@ static NSString *SPCompletionTokensSnippetsKey = @"function_argument_snippets";
 		}
 	}
 	
-	return errorDescription ? [NSError errorWithDomain:NSCocoaErrorDomain code:1 userInfo:[NSDictionary dictionaryWithObject:errorDescription forKey:NSLocalizedDescriptionKey]] : nil;
+	return errorDescription ? [NSError errorWithDomain:NSCocoaErrorDomain code:1 userInfo:@{NSLocalizedDescriptionKey : errorDescription}] : nil;
 }
 
 @end

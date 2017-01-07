@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPPDFExporterDelegate.m
 //  sequel-pro
 //
@@ -28,9 +26,10 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPDFExporterDelegate.h"
+#import "SPExportInitializer.h"
 
 @implementation SPExportController (SPPDFExporterDelegate)
 
@@ -39,7 +38,8 @@
 }
 
 - (void)pdfExportProcessComplete:(SPPDFExporter *)exporter
-{	
+{
+	[self exportEnded];
 }
 
 - (void)pdfExportProcessWillBeginWritingData:(SPPDFExporter *)exporter

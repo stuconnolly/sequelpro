@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTableRelations.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPTableView;
 @class SPMySQLConnection;
@@ -41,6 +39,7 @@
 	IBOutlet SPDatabaseDocument *tableDocumentInstance;
 	IBOutlet SPTablesList       *tablesListInstance;
 	IBOutlet SPTableData        *tableDataInstance;
+	IBOutlet SPTableView        *tableList;
 		
 	IBOutlet NSButton    *addRelationButton;
 	IBOutlet NSButton    *removeRelationButton;	
@@ -59,7 +58,10 @@
 	IBOutlet NSButton            *confirmAddRelationButton;
 	IBOutlet NSProgressIndicator *dataProgressIndicator;
 	IBOutlet NSTextField         *progressStatusTextField;
-		
+	
+	IBOutlet NSView     *detailErrorView;
+	IBOutlet NSTextView *detailErrorText;
+	
 	SPMySQLConnection *connection;
 
 	NSUserDefaults *prefs;

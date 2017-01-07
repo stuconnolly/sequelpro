@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMySQLConnection.m
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPMySQL Private APIs.h"
 #import "SPMySQLKeepAliveTimer.h"
@@ -43,10 +41,10 @@ static void *mySQLThreadFlag;
 #pragma mark Class constants
 
 // The default connection options for MySQL connections
-const NSUInteger SPMySQLConnectionOptions =
-					CLIENT_COMPRESS				|	// Enable protocol compression - almost always a win
-					CLIENT_INTERACTIVE			|	// Mark ourselves as an interactive client
-					CLIENT_MULTI_RESULTS;			// Multiple result support (very basic, but present)
+const SPMySQLClientFlags SPMySQLConnectionOptions =
+					SPMySQLClientFlagCompression |  // Enable protocol compression - almost always a win
+					SPMySQLClientFlagInteractive |  // Mark ourselves as an interactive client
+					SPMySQLClientFlagMultiResults;  // Multiple result support (very basic, but present)
 
 // List of permissible ciphers to use for SSL connections
 const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RSA-AES128-SHA:AES128-SHA:AES256-RMD:AES128-RMD:DES-CBC3-RMD:DHE-RSA-AES256-RMD:DHE-RSA-AES128-RMD:DHE-RSA-DES-CBC3-RMD:RC4-SHA:RC4-MD5:DES-CBC3-SHA:DES-CBC-SHA:EDH-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC-SHA";
@@ -67,6 +65,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 @synthesize sslKeyFilePath;
 @synthesize sslCertificatePath;
 @synthesize sslCACertificatePath;
+@synthesize sslCipherList;
 @synthesize timeout;
 @synthesize useKeepAlive;
 @synthesize keepAliveInterval;
@@ -74,6 +73,20 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 @synthesize retryQueriesOnConnectionFailure;
 @synthesize delegateQueryLogging;
 @synthesize lastQueryWasCancelled;
+@synthesize clientFlags = clientFlags;
+
+#pragma mark -
+#pragma mark Getters and Setters
+
+- (void)addClientFlags:(SPMySQLClientFlags)opts
+{
+	[self setClientFlags:([self clientFlags] | opts)];
+}
+
+- (void)removeClientFlags:(SPMySQLClientFlags)opts
+{
+	[self setClientFlags:([self clientFlags] & ~opts)];
+}
 
 #pragma mark -
 #pragma mark Initialisation and teardown
@@ -132,9 +145,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		keepAlivePingFailures = 0;
 		lastKeepAliveTime = 0;
 		keepAliveThread = nil;
-		keepAlivePingThread_t = NULL;
 		keepAlivePingThreadActive = NO;
-		keepAliveLastPingSuccess = NO;
 		keepAliveLastPingBlocked = NO;
 
 		// Set up default encoding variables
@@ -162,11 +173,13 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		[connectionLock setName:@"SPMySQLConnection query lock"];
 
 		// Ensure the server detail records are initialised
-		serverVersionString = nil;
+		serverVariableVersion = nil;
+		serverVersionNumber = 0;
 
 		// Start with a blank error state
 		queryErrorID = 0;
 		queryErrorMessage = nil;
+		querySqlstate = nil;
 
 		// Start with empty cancellation details
 		lastQueryWasCancelled = NO;
@@ -186,8 +199,12 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		// while running them
 		retryQueriesOnConnectionFailure = YES;
 
+		_debugLastConnectedEvent = nil;
+
 		// Start the ping keepalive timer
 		keepAliveTimer = [[SPMySQLKeepAliveTimer alloc] initWithInterval:10 target:self selector:@selector(_keepAlive)];
+		
+		[self setClientFlags:SPMySQLConnectionOptions];
 	}
 
 	return self;
@@ -218,6 +235,8 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		[proxy setConnectionStateChangeSelector:NULL delegate:nil];
 		[proxy release];
 	}
+	
+	[self setSslCipherList:nil];
 
 	// Ensure the query lock is unlocked, thereafter setting to nil in case of pending calls
 	if ([connectionLock condition] != SPMySQLConnectionIdle) {
@@ -231,9 +250,12 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 
 	if (database) [database release], database = nil;
 	if (databaseToRestore) [databaseToRestore release], databaseToRestore = nil;
-	if (serverVersionString) [serverVersionString release], serverVersionString = nil;
+	if (serverVariableVersion) [serverVariableVersion release], serverVariableVersion = nil;
 	if (queryErrorMessage) [queryErrorMessage release], queryErrorMessage = nil;
+	if (querySqlstate) [querySqlstate release], querySqlstate = nil;
 	[delegateDecisionLock release];
+
+	[_debugLastConnectedEvent release];
 
 	[NSObject cancelPreviousPerformRequestsWithTarget:self];
 
@@ -260,6 +282,9 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
  * Error checks extensively - if this method fails, it will ask how to proceed and loop depending
  * on the status, not returning control until either a connection has been established or
  * the connection and document have been closed.
+ *
+ * WARNING: This method may exit early returning NO if the current thread is cancelled!
+ *          You MUST check the isCancelled flag before using the result!
  */
 - (BOOL)reconnect
 {
@@ -308,10 +333,12 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
  * Checks whether the connection to the server is still active.  This verifies
  * the connection using a ping, and if the connection is found to be down attempts
  * to quickly restore it, including the previous state.
+ *
+ * WARNING: This method may return NO if the current thread is cancelled!
+ *          You MUST check the isCancelled flag before using the result!
  */
 - (BOOL)checkConnection
 {
-
 	// If the connection is not seen as active, don't proceed
 	if (state != SPMySQLConnected) return NO;
 
@@ -377,20 +404,22 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 {
 	NSFileManager *fileManager = [NSFileManager defaultManager];
 
-	NSArray *possibleSocketLocations = [NSArray arrayWithObjects:
-										@"/tmp/mysql.sock",							// Default
-										@"/Applications/MAMP/tmp/mysql/mysql.sock",	// MAMP default location
-										@"/Applications/xampp/xamppfiles/var/mysql/mysql.sock", // XAMPP default location
-										@"/var/mysql/mysql.sock",					// Mac OS X Server default
-										@"/opt/local/var/run/mysqld/mysqld.sock",	// Darwinports MySQL
-										@"/opt/local/var/run/mysql4/mysqld.sock",	// Darwinports MySQL 4
-										@"/opt/local/var/run/mysql5/mysqld.sock",	// Darwinports MySQL 5
-										@"/usr/local/zend/mysql/tmp/mysql.sock",	// Zend Server CE (see Issue #1251)
-										@"/var/run/mysqld/mysqld.sock",				// As used on Debian/Gentoo
-										@"/var/tmp/mysql.sock",						// As used on FreeBSD
-										@"/var/lib/mysql/mysql.sock",				// As used by Fedora
-										@"/opt/local/lib/mysql/mysql.sock",			// Alternate fedora
-										nil];
+	NSArray *possibleSocketLocations = @[
+			@"/tmp/mysql.sock",                                     // Default
+			@"/Applications/MAMP/tmp/mysql/mysql.sock",             // MAMP default location
+			@"/Applications/xampp/xamppfiles/var/mysql/mysql.sock", // XAMPP default location
+			@"/var/mysql/mysql.sock",                               // Mac OS X Server default
+			@"/opt/local/var/run/mysqld/mysqld.sock",               // MacPorts MySQL
+			@"/opt/local/var/run/mysql4/mysqld.sock",               // MacPorts MySQL 4
+			@"/opt/local/var/run/mysql5/mysqld.sock",               // MacPorts MySQL 5
+			@"/opt/local/var/run/mariadb-10.0/mysqld.sock",         // MacPorts MariaDB 10.0
+			@"/opt/local/var/run/mariadb-10.1/mysqld.sock",         // MacPorts MariaDB 11.0
+			@"/usr/local/zend/mysql/tmp/mysql.sock",                // Zend Server CE (see Issue #1251)
+			@"/var/run/mysqld/mysqld.sock",                         // As used on Debian/Gentoo
+			@"/var/tmp/mysql.sock",                                 // As used on FreeBSD
+			@"/var/lib/mysql/mysql.sock",                           // As used by Fedora
+			@"/opt/local/lib/mysql/mysql.sock"
+	];
 
 	for (NSUInteger i = 0; i < [possibleSocketLocations count]; i++) {
 		if ([fileManager fileExistsAtPath:[possibleSocketLocations objectAtIndex:i]])
@@ -405,6 +434,19 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 #pragma mark -
 #pragma mark Private API
 
+//http://alastairs-place.net/blog/2013/01/10/interesting-os-x-crash-report-tidbits/
+/* CrashReporter info */
+const char *__crashreporter_info__ = NULL;
+asm(".desc ___crashreporter_info__, 0x10");
+
+static uint64_t _elapsedMicroSecondsSinceAbsoluteTime(uint64_t comparisonTime)
+{
+	uint64_t elapsedTime_t = mach_absolute_time() - comparisonTime;
+	Nanoseconds elapsedTime = AbsoluteToNanoseconds(*(AbsoluteTime *)&(elapsedTime_t));
+
+	return (UnsignedWideToUInt64(elapsedTime) / 1000ULL);
+}
+
 @implementation SPMySQLConnection (PrivateAPI)
 
 /**
@@ -415,7 +457,12 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 
 	// If a connection is already active in some form, throw an exception
 	if (state != SPMySQLDisconnected && state != SPMySQLConnectionLostInBackground) {
-		[NSException raise:NSInternalInconsistencyException format:@"Attempted to connect a connection that is not disconnected (%d).", state];
+		@synchronized (self) {
+			uint64_t diff = _elapsedMicroSecondsSinceAbsoluteTime(initialConnectTime);
+			asprintf(&__crashreporter_info__, "Attempted to connect a connection that is not disconnected (SPMySQLConnectionState=%d).\nIf state==2: Previous connection made %lluµs ago from: %s", state, diff, [_debugLastConnectedEvent cStringUsingEncoding:NSUTF8StringEncoding]);
+			__builtin_trap();
+		}
+		[NSException raise:NSInternalInconsistencyException format:@"Attempted to connect a connection that is not disconnected (SPMySQLConnectionState=%d).", state];
 		return NO;
 	}
 	state = SPMySQLConnecting;
@@ -440,16 +487,35 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 	// If the connection was cancelled, clean up and don't continue
 	if (userTriggeredDisconnect) {
 		mysql_close(mySQLConnection);
-		[self _unlockConnection];
 		mySQLConnection = NULL;
+		[self _unlockConnection];
 		return NO;
 	}
 
 	// Successfully connected - record connected state and reset tracking variables
 	state = SPMySQLConnected;
-	initialConnectTime = mach_absolute_time();
+
+	@synchronized (self) {
+		initialConnectTime = mach_absolute_time();
+		[_debugLastConnectedEvent release];
+		_debugLastConnectedEvent = [[NSString alloc] initWithFormat:@"thread=%@ stack=%@",[NSThread currentThread],[NSThread callStackSymbols]];
+	}
+
 	mysqlConnectionThreadId = mySQLConnection->thread_id;
-	lastConnectionUsedTime = 0;
+	lastConnectionUsedTime = initialConnectTime;
+
+	// Copy the server version string to the instance variable
+	if (serverVariableVersion) [serverVariableVersion release], serverVariableVersion = nil;
+	// the mysql_get_server_info() function
+	//   * returns the version name that is part of the initial connection handshake.
+	//   * Unless the connection failed, it will always return a non-null buffer containing at least a '\0'.
+	//   * It will never affect the error variables (since it only returns a struct member)
+	//
+	// At that point (handshake) there is no charset and it's highly unlikely this will ever contain something other than ASCII,
+	// but to be safe, we'll use the Latin1 encoding which won't bail on invalid chars.
+	serverVariableVersion = [[NSString alloc] initWithCString:mysql_get_server_info(mySQLConnection) encoding:NSISOLatin1StringEncoding];
+	// this one can actually change the error state, but only if the server version string is not set (ie. no connection)
+	serverVersionNumber = mysql_get_server_version(mySQLConnection);
 
 	// Update SSL state
 	connectedWithSSL = NO;
@@ -465,8 +531,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 	keepAlivePingFailures = 0;
 
 	// Clear the connection error record
-	[self _updateLastErrorID:NSNotFound];
-	[self _updateLastErrorMessage:nil];
+	[self _updateLastErrorInfos];
 
 	// Unlock the connection
 	[self _unlockConnection];
@@ -499,10 +564,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 
 	// Calling mysql_init will have automatically installed per-thread variables if necessary,
 	// so track their installation for removal and to avoid recreating again.
-	if (!pthread_getspecific(mySQLThreadInitFlagKey)) {
-		pthread_setspecific(mySQLThreadInitFlagKey, &mySQLThreadFlag);
-		[(NSNotificationCenter *)[NSNotificationCenter defaultCenter] addObserver:[self class] selector:@selector(_removeThreadVariables:) name:NSThreadWillExitNotification object:[NSThread currentThread]];
-	}
+	[self _validateThreadSetup];
 
 	// Disable automatic reconnection, as it's handled in-framework to preserve
 	// options, encodings and connection state.
@@ -545,6 +607,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		const char *theSSLKeyFilePath = NULL;
 		const char *theSSLCertificatePath = NULL;
 		const char *theCACertificatePath = NULL;
+		const char *theSSLCiphers = SPMySQLSSLPermissibleCiphers;
 
 		if (sslKeyFilePath) {
 			theSSLKeyFilePath = [[sslKeyFilePath stringByExpandingTildeInPath] UTF8String];
@@ -555,11 +618,14 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		if (sslCACertificatePath) {
 			theCACertificatePath = [[sslCACertificatePath stringByExpandingTildeInPath] UTF8String];
 		}
+		if(sslCipherList) {
+			theSSLCiphers = [sslCipherList UTF8String];
+		}
 
-		mysql_ssl_set(theConnection, theSSLKeyFilePath, theSSLCertificatePath, theCACertificatePath, NULL, SPMySQLSSLPermissibleCiphers);
+		mysql_ssl_set(theConnection, theSSLKeyFilePath, theSSLCertificatePath, theCACertificatePath, NULL, theSSLCiphers);
 	}
 
-	MYSQL *connectionStatus = mysql_real_connect(theConnection, theHost, theUsername, thePassword, NULL, (unsigned int)port, theSocket, SPMySQLConnectionOptions);
+	MYSQL *connectionStatus = mysql_real_connect(theConnection, theHost, theUsername, thePassword, NULL, (unsigned int)port, theSocket, [self clientFlags]);
 
 	// If the connection failed, return NULL
 	if (theConnection != connectionStatus) {
@@ -568,6 +634,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		if (isMaster) {
 			[self _updateLastErrorMessage:[self _stringForCString:mysql_error(theConnection)]];
 			[self _updateLastErrorID:mysql_errno(theConnection)];
+			[self _updateLastSqlstate:[self _stringForCString:mysql_sqlstate(theConnection)]];
 		}
 
 		return NULL;
@@ -587,6 +654,9 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
  * the connection and document have been closed.
  * Runs its own autorelease pool as sometimes called in a thread following proxy changes
  * (where the return code doesn't matter).
+ *
+ * WARNING: This method may exit early returning NO if the current thread is cancelled!
+ *          You MUST check the isCancelled flag before using the result!
  */
 - (BOOL)_reconnectAllowingRetries:(BOOL)canRetry
 {
@@ -699,7 +769,7 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 			// Process events for a short time, allowing dialogs to be shown but waiting for
 			// the proxy. Capture how long this interface action took, standardising the
 			// overall time.
-			[[NSRunLoop mainRunLoop] runMode:NSModalPanelRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.25]];
+			[[NSRunLoop currentRunLoop] runMode:NSModalPanelRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.25]];
 			if (_elapsedSecondsSinceAbsoluteTime(loopIterationStart_t) < 0.25) {
 				usleep((useconds_t)(250000 - (1000000 * _elapsedSecondsSinceAbsoluteTime(loopIterationStart_t))));
 			}
@@ -860,11 +930,15 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 	uint64_t disconnectStartTime_t = mach_absolute_time();
 	while (![self _tryLockConnection]) {
 		usleep(100000);
-		if (_elapsedSecondsSinceAbsoluteTime(disconnectStartTime_t) > 10) break;
+		if (_elapsedSecondsSinceAbsoluteTime(disconnectStartTime_t) > 10) {
+			NSLog(@"%s: Could not acquire connection lock within time limit (10s). Forcing unlock!",__PRETTY_FUNCTION__);
+			break;
+		}
 	}
 	[self _unlockConnection];
 	[self _cancelKeepAlives];
 
+	[self _lockConnection];
 	// Close the underlying MySQL connection if it still appears to be active, and not reading
 	// or writing.  While this may result in a leak of the MySQL object, it prevents crashes
 	// due to attempts to close a blocked/stuck connection.
@@ -872,17 +946,16 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		mysql_close(mySQLConnection);
 	}
 	mySQLConnection = NULL;
+	if (serverVariableVersion) [serverVariableVersion release], serverVariableVersion = nil;
+	serverVersionNumber = 0;
+	if (database) [database release], database = nil;
+	state = SPMySQLDisconnected;
+	[self _unlockConnection];
 
 	// If using a connection proxy, disconnect that too
 	if (proxy) {
 		[proxy performSelectorOnMainThread:@selector(disconnect) withObject:nil waitUntilDone:YES];
 	}
-
-	// Clear host-specific information
-	if (serverVersionString) [serverVersionString release], serverVersionString = nil;
-	if (database) [database release], database = nil;
-
-	state = SPMySQLDisconnected;
 }
 
 /**
@@ -907,19 +980,32 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
 		[variables setObject:[variableRow objectAtIndex:1] forKey:[variableRow objectAtIndex:0]];
 	}
 
-	// Copy the server version string to the instance variable
-	if (serverVersionString) [serverVersionString release], serverVersionString = nil;
-	serverVersionString = [[variables objectForKey:@"version"] retain];
-
 	// Get the connection encoding.  Although a specific encoding may have been requested on
 	// connection, it may be overridden by init_connect commands or connection state changes.
 	// Default to latin1 for older server versions.
 	NSString *retrievedEncoding = @"latin1";
+	// character_set_results is the charset the strings received from the server will be in
 	if ([variables objectForKey:@"character_set_results"]) {
 		retrievedEncoding = [variables objectForKey:@"character_set_results"];
-	} else if ([variables objectForKey:@"character_set"]) {
+	}
+	// not used in 4.1+ (?)
+	else if ([variables objectForKey:@"character_set"]) {
 		retrievedEncoding = [variables objectForKey:@"character_set"];
 	}
+	// character_set_client is the charset the server expects strings transmitted by us to be in
+	else if ([variables objectForKey:@"character_set_client"]) {
+		retrievedEncoding = [variables objectForKey:@"character_set_client"]; // fallback for sphinxql
+	}
+	// character_set_connection is used internally by the server for comparisons.
+	// String literals (without a cast) will always be converted from character_set_client to character_set_connection first.
+	// As an example:
+	//   * Use a client with "SET NAMES utf8"
+	//   * Do a "set @@session.character_set_connection = 'latin1';"
+	//   * Finally try a "SELECT '犬';" (also try "select _utf8'犬';" for completeness)
+	//   * The result will just show a "?"
+	// So even though we told the server that the client uses utf8 and the results
+	// should be encoded in utf8, too, the character got lost.
+	// This happened because the server did a roundtrip of utf8 -> latin1 -> utf8.
 
 	// Update instance variables
 	if (encoding) [encoding release];
@@ -963,6 +1049,9 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
  * each of which requires a round trip to the server - but handles most
  * network issues.
  * Returns whether the connection is considered still valid.
+ *
+ * WARNING: This method may return NO if the current thread is cancelled!
+ *          You MUST check the isCancelled flag before using the result!
  */
 - (BOOL)_checkConnectionIfNecessary
 {
@@ -986,21 +1075,22 @@ const char *SPMySQLSSLPermissibleCiphers = "DHE-RSA-AES256-SHA:AES256-SHA:DHE-RS
  * Ensure that the thread this method is called on has been registered for
  * use with MySQL.  MySQL requires thread-specific variables for safe
  * execution.
+ *
+ * Calling this multiple times per thread is OK.
  */
 - (void)_validateThreadSetup
 {
-
 	// Check to see whether the handler has already been installed
 	if (pthread_getspecific(mySQLThreadInitFlagKey)) return;
 
 	// If not, install it
-	mysql_thread_init();
+	mysql_thread_init(); // multiple calls per thread OK.
 
 	// Mark the thread to avoid multiple installs
 	pthread_setspecific(mySQLThreadInitFlagKey, &mySQLThreadFlag);
 
 	// Set up the notification handler to deregister it
-	[(NSNotificationCenter *)[NSNotificationCenter defaultCenter] addObserver:[self class] selector:@selector(_removeThreadVariables:) name:NSThreadWillExitNotification object:[NSThread currentThread]];
+	[[NSNotificationCenter defaultCenter] addObserver:[self class] selector:@selector(_removeThreadVariables:) name:NSThreadWillExitNotification object:[NSThread currentThread]];
 }
 
 /**

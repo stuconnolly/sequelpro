@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Max Packet Size.m
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 
 #import "Max Packet Size.h"
@@ -110,6 +108,10 @@
 
 	// Make a standard query to the server to retrieve the information
 	SPMySQLResult *result = [self queryString:packetQueryString];
+	if(!result) { // query fails on sphinxql
+		NSLog(@"Query for max_allowed_packet failed: %@ (%lu) (on %@)", [self lastErrorMessage], [self lastErrorID], [self serverVersionString]);
+		return;
+	}
 	[result setReturnDataAsStrings:YES];
 
 	// Get the maximum size string
@@ -168,7 +170,7 @@
 	if ([delegate respondsToSelector:@selector(showErrorWithTitle:message:)]) {
 		[delegate showErrorWithTitle:NSLocalizedString(@"Error", @"error") message:errorMessage];
 	} else {
-		NSRunAlertPanel(NSLocalizedString(@"Error", @"error"), errorMessage, @"OK", nil, nil);
+		NSRunAlertPanel(NSLocalizedString(@"Error", @"error"), @"%@", @"OK", nil, nil, errorMessage);
 	}
 
 	return NO;

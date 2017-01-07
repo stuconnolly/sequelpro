@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPIndexesController.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPDatabaseDocument;
 @class SPTablesList;
@@ -76,7 +74,8 @@
 #endif
 		
 	BOOL _mainNibLoaded;
-	BOOL isMyISAMTale;
+	BOOL isMyISAMTable;
+	BOOL isInnoDBTable;
 	NSString *table;
 	
 	NSMutableArray *fields, *indexes, *indexedFields;

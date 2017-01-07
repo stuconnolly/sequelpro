@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFieldMapperController.h
 //  sequel-pro
 //
@@ -28,14 +26,14 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPTextView;
 @class SPTableView;
 @class SPTablesList;
 @class SPMySQLConnection;
 
-@interface SPFieldMapperController : NSWindowController <NSTokenFieldCellDelegate>
+@interface SPFieldMapperController : NSWindowController <NSTokenFieldCellDelegate, NSMenuDelegate>
 {
 	IBOutlet SPTableView *fieldMapperTableView;
 	IBOutlet NSScrollView *fieldMapperTableScrollView;
@@ -112,9 +110,9 @@
 	NSMutableArray *fieldMappingTableDefaultValues;
 	NSMutableArray *defaultFieldTypesForComboBox;
 
-	NSNumber *doImport;
-	NSNumber *doNotImport;
-	NSNumber *isEqual;
+	NSNumber *doImportKey;
+	NSNumber *doNotImportKey;
+	NSNumber *isEqualKey;
 	NSString *doImportString;
 	NSString *doNotImportString;
 	NSString *isEqualString;
@@ -137,6 +135,7 @@
 	NSUInteger windowMinHeigth;
 	NSInteger numberOfImportColumns;
 	NSInteger fieldMappingCurrentRow;
+	NSInteger firstDefaultItemOffset;
 	
 	BOOL fieldMappingImportArrayIsPreview;
 	BOOL importFieldNamesHeader;
@@ -162,6 +161,7 @@
 - (NSArray*)fieldMappingGlobalValueArray;
 - (NSArray*)fieldMappingTableDefaultValues;
 - (BOOL)importFieldNamesHeader;
+- (BOOL)hasContentRows;
 - (BOOL)insertRemainingRowsAfterUpdate;
 - (BOOL)globalValuesInUsage;
 - (BOOL)importIntoNewTable;

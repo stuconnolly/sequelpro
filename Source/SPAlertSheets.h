@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPAlertSheets.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @interface SPAlertSheets : NSObject
 
@@ -57,4 +55,18 @@ void SPBeginAlertSheet(
 		 SEL didEndSelector,
 		void *contextInfo,
 	NSString *msg
+);
+
+void SPOnewayAlertSheet(
+	NSString *title,
+	NSWindow *docWindow,
+	NSString *msg
+);
+
+void SPOnewayAlertSheetWithStyle(
+	NSString *title,
+	NSString *defaultButton,
+	NSWindow *docWindow,
+	NSString *msg,
+	NSAlertStyle alertStyle
 );

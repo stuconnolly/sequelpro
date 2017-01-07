@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPPreferenceControllerDelegate.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPreferenceControllerDelegate.h"
 
@@ -64,7 +62,7 @@
 #pragma mark -
 #pragma mark Toolbar delegate methods
 
-- (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSString *)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag
+- (NSToolbarItem *)toolbar:(NSToolbar *)aToolbar itemForItemIdentifier:(NSString *)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag
 {		
     if ([itemIdentifier isEqualToString:SPPreferenceToolbarGeneral]) {
         return generalItem;
@@ -91,43 +89,43 @@
     return [[[NSToolbarItem alloc] initWithItemIdentifier:itemIdentifier] autorelease];
 }
 
-- (NSArray *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar
+- (NSArray *)toolbarAllowedItemIdentifiers:(NSToolbar *)aToolbar
 {
-    return [NSArray arrayWithObjects:
-			SPPreferenceToolbarGeneral, 
-			SPPreferenceToolbarTables, 
-			SPPreferenceToolbarNotifications, 
-			SPPreferenceToolbarEditor, 
-			SPPreferenceToolbarShortcuts, 
-			SPPreferenceToolbarAutoUpdate, 
-			SPPreferenceToolbarNetwork, 
-			nil];
+    return @[
+			SPPreferenceToolbarGeneral,
+			SPPreferenceToolbarTables,
+			SPPreferenceToolbarNotifications,
+			SPPreferenceToolbarEditor,
+			SPPreferenceToolbarShortcuts,
+			SPPreferenceToolbarAutoUpdate,
+			SPPreferenceToolbarNetwork
+	];
 }
 
-- (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar
+- (NSArray *)toolbarDefaultItemIdentifiers:(NSToolbar *)aToolbar
 {
-	return [NSArray arrayWithObjects:
-			SPPreferenceToolbarGeneral, 
-			SPPreferenceToolbarTables, 
-			SPPreferenceToolbarNotifications, 
-			SPPreferenceToolbarEditor, 
-			SPPreferenceToolbarShortcuts, 
-			SPPreferenceToolbarAutoUpdate, 
-			SPPreferenceToolbarNetwork, 
-			nil];
+	return @[
+			SPPreferenceToolbarGeneral,
+			SPPreferenceToolbarTables,
+			SPPreferenceToolbarNotifications,
+			SPPreferenceToolbarEditor,
+			SPPreferenceToolbarShortcuts,
+			SPPreferenceToolbarAutoUpdate,
+			SPPreferenceToolbarNetwork
+	];
 }
 
-- (NSArray *)toolbarSelectableItemIdentifiers:(NSToolbar *)toolbar
+- (NSArray *)toolbarSelectableItemIdentifiers:(NSToolbar *)aToolbar
 {
-	return [NSArray arrayWithObjects:
-			SPPreferenceToolbarGeneral, 
-			SPPreferenceToolbarTables, 
-			SPPreferenceToolbarNotifications, 
-			SPPreferenceToolbarEditor, 
-			SPPreferenceToolbarShortcuts, 
-			SPPreferenceToolbarAutoUpdate, 
-			SPPreferenceToolbarNetwork, 
-			nil];
+	return @[
+			SPPreferenceToolbarGeneral,
+			SPPreferenceToolbarTables,
+			SPPreferenceToolbarNotifications,
+			SPPreferenceToolbarEditor,
+			SPPreferenceToolbarShortcuts,
+			SPPreferenceToolbarAutoUpdate,
+			SPPreferenceToolbarNetwork
+	];
 }
 
 @end

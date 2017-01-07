@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoritesExporter.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPFavoritesExporter.h"
 #import "SPTreeNode.h"
@@ -76,10 +74,13 @@
 	// Get a dictionary representation of all favorites
 	for (SPTreeNode *node in [self exportFavorites])
 	{
-		[favorites addObject:[node dictionaryRepresentation]];
+		// The selection could contain a group as well as items in that group.
+		// So we skip those items, as their group will already export them.
+		if(![node isDescendantOfNodes:[self exportFavorites]])
+			[favorites addObject:[node dictionaryRepresentation]];
 	}
 	
-	NSDictionary *dictionary = [NSDictionary dictionaryWithObject:favorites forKey:SPFavoritesDataRootKey];
+	NSDictionary *dictionary = @{SPFavoritesDataRootKey : favorites};
 	
 	[favorites release];
 	

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPCategoryAdditions.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 /**
  * This header is intended to import all of our custom category additions to classes outwith our control.
@@ -50,6 +48,7 @@
 #import "SPColorAdditions.h"
 #import "SPFileManagerAdditions.h"
 #import "SPDateAdditions.h"
+#import "SPScreenAdditions.h"
 
 #import "NSNotificationCenterThreadingAdditions.h"
 #import "NSMutableArray-MultipleSort.h"

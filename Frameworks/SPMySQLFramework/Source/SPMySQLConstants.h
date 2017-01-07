@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPMySQLConstants.h
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 
 // Connection state
@@ -76,3 +74,10 @@ typedef enum {
 	SPMySQLResultAsLowMemStreamingResult = 2,
 	SPMySQLResultAsStreamingResultStore  = 3
 } SPMySQLResultType;
+
+// Redeclared from mysql_com.h (private header)
+typedef NS_OPTIONS(unsigned long, SPMySQLClientFlags) {
+	SPMySQLClientFlagCompression  = 32,          // CLIENT_COMPRESS
+	SPMySQLClientFlagInteractive  = 1024,        // CLIENT_INTERACTIVE
+	SPMySQLClientFlagMultiResults = (1UL << 17)  // CLIENT_MULTI_RESULTS = 131072
+};

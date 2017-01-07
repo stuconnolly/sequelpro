@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPConsoleMessage.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPConsoleMessage.h"
 
@@ -37,24 +35,26 @@
 @synthesize isError;
 @synthesize messageDate;
 @synthesize message;
+@synthesize messageDatabase;
 @synthesize messageConnection;
 
 /**
  * Returns a new console message instance using the suppled message, date and connection.
  */
-+ (SPConsoleMessage *)consoleMessageWithMessage:(NSString *)message date:(NSDate *)date connection:(NSString *)connection
++ (SPConsoleMessage *)consoleMessageWithMessage:(NSString *)message date:(NSDate *)date connection:(NSString *)connection database:(NSString *)database
 {
-	return [[[SPConsoleMessage alloc] initWithMessage:message date:date connection:connection] autorelease];
+	return [[[SPConsoleMessage alloc] initWithMessage:message date:date connection:connection database:database] autorelease];
 }
 
 /**
  * Initializes a new console message instance using the suppled message, date and connection.
  */
-- (id)initWithMessage:(NSString *)consoleMessage date:(NSDate *)date connection:(NSString *)connection
+- (id)initWithMessage:(NSString *)consoleMessage date:(NSDate *)date connection:(NSString *)connection database:(NSString *)database
 {
 	if ((self = [super init])) {
 		[self setMessageDate:date];
 		[self setMessage:consoleMessage];
+		[self setMessageDatabase:database];
 		[self setMessageConnection:connection];
 	}
 	
@@ -65,9 +65,10 @@
 
 - (void)dealloc
 {
-	[message release], message = nil;
-	[messageDate release], messageDate = nil;
-	[messageConnection release], messageConnection = nil;
+	SPClear(message);
+	SPClear(messageDate);
+	SPClear(messageDatabase);
+	SPClear(messageConnection);
 	
 	[super dealloc];
 }

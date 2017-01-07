@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  QKSelectQueryOrderByTests.m
 //  QueryKit
 //
@@ -38,7 +36,7 @@
 
 + (id)defaultTestSuite
 {
-    SenTestSuite *testSuite = [[SenTestSuite alloc] initWithName:NSStringFromClass(self)];
+    XCTestSuite *testSuite = [[XCTestSuite alloc] initWithName:NSStringFromClass(self)];
 	
 	[self addTestForDatabase:QKDatabaseUnknown withIdentifierQuote:EMPTY_STRING toTestSuite:testSuite];
 	[self addTestForDatabase:QKDatabaseMySQL withIdentifierQuote:QKMySQLIdentifierQuote toTestSuite:testSuite];
@@ -47,11 +45,11 @@
     return [testSuite autorelease];
 }
 
-+ (void)addTestForDatabase:(QKQueryDatabase)database withIdentifierQuote:(NSString *)quote toTestSuite:(SenTestSuite *)testSuite
++ (void)addTestForDatabase:(QKQueryDatabase)database withIdentifierQuote:(NSString *)quote toTestSuite:(XCTestSuite *)testSuite
 {		
     for (NSInvocation *invocation in [self testInvocations]) 
 	{
-		SenTestCase *test = [[QKSelectQueryOrderByTests alloc] initWithInvocation:invocation database:database identifierQuote:quote];
+		XCTestCase *test = [[QKSelectQueryOrderByTests alloc] initWithInvocation:invocation database:database identifierQuote:quote];
 		
 		[testSuite addTest:test];
 		
@@ -80,7 +78,7 @@
 
 - (void)testSelectQueryTypeIsCorrect
 {
-	STAssertTrue([[[self query] query] hasPrefix:@"SELECT"], nil);
+	XCTAssertTrue([[[self query] query] hasPrefix:@"SELECT"]);
 }
 
 - (void)testSelectQueryOrderByAscendingIsCorrect
@@ -89,7 +87,7 @@
 		
 	NSString *query = [NSString stringWithFormat:@"ORDER BY %1$@%2$@%1$@ ASC", [self identifierQuote], QKTestFieldOne];
 	
-	STAssertTrue([[[self query] query] hasSuffix:query], nil);
+	XCTAssertTrue([[[self query] query] hasSuffix:query]);
 }
 
 - (void)testSelectQueryOrderByMultipleFieldsAscendingIsCorrect
@@ -99,7 +97,7 @@
 		
 	NSString *query = [NSString stringWithFormat:@"ORDER BY %1$@%2$@%1$@ ASC, %1$@%3$@%1$@ ASC", [self identifierQuote], QKTestFieldOne, QKTestFieldTwo];
 	
-	STAssertTrue([[[self query] query] hasSuffix:query], nil);
+	XCTAssertTrue([[[self query] query] hasSuffix:query]);
 }
 
 - (void)testSelectQueryOrderByDescendingIsCorrect
@@ -108,7 +106,7 @@
 	
 	NSString *query = [NSString stringWithFormat:@"ORDER BY %1$@%2$@%1$@ DESC", [self identifierQuote], QKTestFieldOne];
 	
-	STAssertTrue([[[self query] query] hasSuffix:query], nil);
+	XCTAssertTrue([[[self query] query] hasSuffix:query]);
 }
 
 - (void)testSelectQueryOrderByMultipleFieldsDescendingIsCorrect
@@ -118,7 +116,7 @@
 	
 	NSString *query = [NSString stringWithFormat:@"ORDER BY %1$@%2$@%1$@ DESC, %1$@%3$@%1$@ DESC", [self identifierQuote], QKTestFieldOne, QKTestFieldTwo];
 	
-	STAssertTrue([[[self query] query] hasSuffix:query], nil);
+	XCTAssertTrue([[[self query] query] hasSuffix:query]);
 }
 
 @end

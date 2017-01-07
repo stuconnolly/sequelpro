@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTextView.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTextView.h"
 #import "SPCustomQuery.h"
@@ -203,6 +201,9 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 	[self setShouldHiliteQuery:[prefs boolForKey:SPCustomQueryHighlightCurrentQuery]];
 
 	[self _setTextSelectionColor:[NSUnarchiver unarchiveObjectWithData:[prefs dataForKey:SPCustomQueryEditorSelectionColor]] onBackgroundColor:backgroundColor];
+
+	[self setAutomaticDashSubstitutionEnabled:NO];  // prevents -- from becoming —, the em dash.
+	[self setAutomaticQuoteSubstitutionEnabled:NO]; // prevents ' and " from becoming ‘, ’ and “, ” respectively.
 
 	// Register observers for the when editor background colors preference changes
 	[prefs addObserver:self forKeyPath:SPCustomQueryEditorSelectionColor options:NSKeyValueObservingOptionNew context:NULL];
@@ -380,7 +381,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 
 			NSSortDescriptor *desc = [[NSSortDescriptor alloc] initWithKey:nil ascending:YES selector:@selector(localizedCompare:)];
 			NSMutableArray *sortedDbs = [NSMutableArray array];
-			[sortedDbs addObjectsFromArray:[allDbs sortedArrayUsingDescriptors:[NSArray arrayWithObject:desc]]];
+			[sortedDbs addObjectsFromArray:[allDbs sortedArrayUsingDescriptors:@[desc]]];
 
 			NSString *currentDb = nil;
 			NSString *currentTable = nil;
@@ -477,7 +478,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 					[sortedTables addObject:aTableName_id];
 				} else {
 					[possibleCompletions addObject:[NSDictionary dictionaryWithObjectsAndKeys:[[db componentsSeparatedByString:SPUniqueSchemaDelimiter] lastObject], @"display", @"database-small", @"image", @"", @"isRef", nil]];
-					[sortedTables addObjectsFromArray:[allTables sortedArrayUsingDescriptors:[NSArray arrayWithObject:desc]]];
+					[sortedTables addObjectsFromArray:[allTables sortedArrayUsingDescriptors:@[desc]]];
 					if([sortedTables count] > 1 && [sortedTables containsObject:[NSString stringWithFormat:@"%@%@%@", db, SPUniqueSchemaDelimiter, currentTable]]) {
 						[sortedTables removeObject:[NSString stringWithFormat:@"%@%@%@", db, SPUniqueSchemaDelimiter, currentTable]];
 						[sortedTables insertObject:[NSString stringWithFormat:@"%@%@%@", db, SPUniqueSchemaDelimiter, currentTable] atIndex:0];
@@ -507,7 +508,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 							break;
 						}
 					if(!breakFlag) {
-						NSArray *sortedFields = [allFields sortedArrayUsingDescriptors:[NSArray arrayWithObject:desc]];
+						NSArray *sortedFields = [allFields sortedArrayUsingDescriptors:@[desc]];
 						for(id field in sortedFields) {
 							if(![field hasPrefix:@"  "]) {
 								NSString *fieldpath = [field substringFromIndex:[field rangeOfString:SPUniqueSchemaDelimiter].location];
@@ -771,8 +772,8 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 				backtickMode+=1;
 				leftBacktick = YES;
 			}
-			if([[self string] length] > parseRange.location+parseRange.length) {
-				if([[self string] characterAtIndex:parseRange.location+parseRange.length] == '`') {
+			if([[self string] length] > NSMaxRange(parseRange)) {
+				if([[self string] characterAtIndex:NSMaxRange(parseRange)] == '`') {
 					backtickMode+=2;
 					parseRange.length++; // adjust parse string for right `
 					rightBacktick = YES;
@@ -1121,17 +1122,16 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 
 	NSPasteboard *pb = [NSPasteboard generalPasteboard];
 	NSTextStorage *textStorage = [self textStorage];
-	NSData *rtf = [textStorage RTFFromRange:[self selectedRange]
-		documentAttributes:nil];
+	NSData *rtf = [textStorage RTFFromRange:[self selectedRange] documentAttributes:@{}];
 	
 	if (rtf)
 	{
-		[pb declareTypes:[NSArray arrayWithObject:NSRTFPboardType] owner:self];
+		[pb declareTypes:@[NSRTFPboardType] owner:self];
 		[pb setData:rtf forType:NSRTFPboardType];
 	}
 }
 
-- (void) selectCurrentQuery
+- (IBAction) selectCurrentQuery:(id)sender
 {
 	if([self isEditable])
 		[customQueryInstance selectCurrentQuery];
@@ -1413,7 +1413,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		// if(currentDb != nil && dbs != nil && [dbs count] && [dbs objectForKey:currentDb]) {
 		// 	NSArray *allTables = [[dbs objectForKey:currentDb] allKeys];
 		// 	NSSortDescriptor *desc = [[NSSortDescriptor alloc] initWithKey:nil ascending:YES selector:@selector(localizedCompare:)];
-		// 	NSArray *sortedTables = [allTables sortedArrayUsingDescriptors:[NSArray arrayWithObject:desc]];
+		// 	NSArray *sortedTables = [allTables sortedArrayUsingDescriptors:@[desc]];
 		// 	[desc release];
 		// 	for(id table in sortedTables) {
 		// 		NSDictionary * theTable = [[dbs objectForKey:currentDb] objectForKey:table];
@@ -1430,7 +1430,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		// } else {
 		arr = [NSArray arrayWithArray:[[(NSObject*)[self delegate] valueForKeyPath:@"tablesListInstance"] allTableAndViewNames]];
 		if(arr == nil) {
-			arr = [NSArray array];
+			arr = @[];
 		}
 		for(id w in arr)
 			[possibleCompletions addObject:[NSDictionary dictionaryWithObjectsAndKeys:w, @"display", @"table-small-square", @"image", @"", @"isRef", nil]];
@@ -1439,13 +1439,13 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 	else if([kind isEqualToString:@"$SP_ASLIST_ALL_DATABASES"]) {
 		arr = [NSArray arrayWithArray:[[(NSObject*)[self delegate] valueForKeyPath:@"tablesListInstance"] allDatabaseNames]];
 		if(arr == nil) {
-			arr = [NSArray array];
+			arr = @[];
 		}
 		for(id w in arr)
 			[possibleCompletions addObject:[NSDictionary dictionaryWithObjectsAndKeys:w, @"display", @"database-small", @"image", @"", @"isRef", nil]];
 		arr = [NSArray arrayWithArray:[[(NSObject*)[self delegate] valueForKeyPath:@"tablesListInstance"] allSystemDatabaseNames]];
 		if(arr == nil) {
-			arr = [NSArray array];
+			arr = @[];
 		}
 		for(id w in arr)
 			[possibleCompletions addObject:[NSDictionary dictionaryWithObjectsAndKeys:w, @"display", @"database-small", @"image", @"", @"isRef", nil]];
@@ -1465,7 +1465,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 			NSDictionary * theTable = [[dbs objectForKey:currentDb] objectForKey:currentTable];
 			NSArray *allFields = [theTable allKeys];
 			NSSortDescriptor *desc = [[NSSortDescriptor alloc] initWithKey:nil ascending:YES selector:@selector(localizedCompare:)];
-			NSArray *sortedFields = [allFields sortedArrayUsingDescriptors:[NSArray arrayWithObject:desc]];
+			NSArray *sortedFields = [allFields sortedArrayUsingDescriptors:@[desc]];
 			[desc release];
 			for(id field in sortedFields) {
 				if(![field hasPrefix:@"  "]) {
@@ -1498,7 +1498,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		} else {
 			arr = [NSArray arrayWithArray:[[tableDocumentInstance valueForKeyPath:@"tableDataInstance"] valueForKey:@"columnNames"]];
 			if(arr == nil) {
-				arr = [NSArray array];
+				arr = @[];
 			}
 			for(id w in arr)
 				[possibleCompletions addObject:[NSDictionary dictionaryWithObjectsAndKeys:w, @"display", @"field-small-square", @"image", @"", @"isRef", nil]];
@@ -1551,18 +1551,20 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		NSInteger i, j, k, deltaLength;
 		NSRange mirroredRange;
 
+		SnippetControlInfo *currentSnippetRef = &snippetControlArray[currentSnippetIndex];
 		// Go through each defined mirrored snippet and update it
 		for(i=0; i<=mirroredCounter; i++) {
-			if(snippetMirroredControlArray[i][0] == currentSnippetIndex) {
+			MirrorControlInfo *mirrorRef = &snippetMirroredControlArray[i];
+			if(mirrorRef->snippet == currentSnippetIndex) {
 
-				deltaLength = snippetControlArray[currentSnippetIndex][1]-snippetMirroredControlArray[i][2];
+				deltaLength = currentSnippetRef->length - mirrorRef->length;
 
-				mirroredRange = NSMakeRange(snippetMirroredControlArray[i][1], snippetMirroredControlArray[i][2]);
+				mirroredRange = NSMakeRange(mirrorRef->location, mirrorRef->length);
 				NSString *mirroredString = nil;
 
 				// For safety reasons
 				@try{
-					mirroredString = [[self string] substringWithRange:NSMakeRange(snippetControlArray[currentSnippetIndex][0], snippetControlArray[currentSnippetIndex][1])];
+					mirroredString = [[self string] substringWithRange:NSMakeRange(currentSnippetRef->location, currentSnippetRef->length)];
 				}
 				@catch(id ae) {
 					NSLog(@"Error while parsing for mirrored snippets. %@", [ae description]);
@@ -1575,26 +1577,26 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 				[self shouldChangeTextInRange:mirroredRange replacementString:mirroredString];
 
 				[self replaceCharactersInRange:mirroredRange withString:mirroredString];
-				snippetMirroredControlArray[i][2] = snippetControlArray[currentSnippetIndex][1];
+				mirrorRef->length = currentSnippetRef->length;
 
 				// If a completion list is open adjust the theCharRange and theParseRange if a mirrored snippet
 				// was updated which is located before the initial position 
-				if(completionIsOpen && snippetMirroredControlArray[i][1] < (NSInteger)completionParseRangeLocation)
+				if(completionIsOpen && mirrorRef->location < (NSInteger)completionParseRangeLocation)
 					[completionPopup adjustWorkingRangeByDelta:deltaLength];
 
 				// Adjust all other snippets accordingly
 				for(j=0; j<=snippetControlMax; j++) {
-					if(snippetControlArray[j][0] > -1) {
-						if(snippetControlArray[j][0]+snippetControlArray[j][1]>=snippetMirroredControlArray[i][1]) {
-							snippetControlArray[j][0] += deltaLength;
+					if(snippetControlArray[j].location > -1) {
+						if(snippetControlArray[j].location+snippetControlArray[j].length >= mirrorRef->location) {
+							snippetControlArray[j].location += deltaLength;
 						}
 					}
 				}
 				// Adjust all mirrored snippets accordingly
 				for(k=0; k<=mirroredCounter; k++) {
 					if(i != k) {
-						if(snippetMirroredControlArray[k][1] > snippetMirroredControlArray[i][1]) {
-							snippetMirroredControlArray[k][1] += deltaLength;
+						if(snippetMirroredControlArray[k].location > mirrorRef->location) {
+							snippetMirroredControlArray[k].location += deltaLength;
 						}
 					}
 				}
@@ -1624,15 +1626,16 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		// Place the caret at the end of the query favorite snippet
 		// and finish snippet editing
 		if(currentSnippetIndex == snippetControlMax) {
-			[self setSelectedRange:NSMakeRange(snippetControlArray[snippetControlMax][0] + snippetControlArray[snippetControlMax][1], 0)];
+			[self setSelectedRange:NSMakeRange(snippetControlArray[snippetControlMax].location + snippetControlArray[snippetControlMax].length, 0)];
 			[self endSnippetSession];
 			return;
 		}
 
-		if(currentSnippetIndex >= 0 && currentSnippetIndex < 20) {
-			if(snippetControlArray[currentSnippetIndex][2] == 0) {
+		if(currentSnippetIndex >= 0 && currentSnippetIndex < COUNT_OF(snippetControlArray)) {
+			SnippetControlInfo *currentSnippetRef = &snippetControlArray[currentSnippetIndex];
+			if(currentSnippetRef->task == 0) {
 
-				NSRange r1 = NSMakeRange(snippetControlArray[currentSnippetIndex][0], snippetControlArray[currentSnippetIndex][1]);
+				NSRange r1 = NSMakeRange(currentSnippetRef->location, currentSnippetRef->length);
 
 				NSRange r2;
 				// Ensure the selection for nested snippets if it is at very end of the text buffer
@@ -1717,13 +1720,9 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 	mirroredCounter = -1;
 
 	// reset snippet array
-	for(i=0; i<20; i++) {
-		snippetControlArray[i][0] = -1; // snippet location
-		snippetControlArray[i][1] = -1; // snippet length
-		snippetControlArray[i][2] = -1; // snippet task : -1 not valid, 0 select snippet
-		snippetMirroredControlArray[i][0] = -1; // mirrored snippet index
-		snippetMirroredControlArray[i][1] = -1; // mirrored snippet location
-		snippetMirroredControlArray[i][2] = -1; // mirrored snippet length
+	for(i=0; i<COUNT_OF(snippetControlArray); i++) {
+		snippetControlArray[i] = (SnippetControlInfo){ -1, -1, -1};
+		snippetMirroredControlArray[i] = (MirrorControlInfo){-1, -1, -1};
 	}
 
 	if(theSnippet == nil || ![theSnippet length]) return;
@@ -1843,8 +1842,11 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 						[theHintString replaceCharactersInRange:tagRange withString:cmdResult];
 					} else if([err code] != 9) { // Suppress an error message if command was killed
 						NSString *errorMessage  = [err localizedDescription];
-						SPBeginAlertSheet(NSLocalizedString(@"BASH Error", @"bash error"), NSLocalizedString(@"OK", @"OK button"), nil, nil, [self window], self, nil, nil,
-										  [NSString stringWithFormat:@"%@ “%@”:\n%@", NSLocalizedString(@"Error for", @"error for message"), [theHintString substringWithRange:cmdRange], errorMessage]);
+						SPOnewayAlertSheet(
+							NSLocalizedString(@"BASH Error", @"bash error"),
+							[self window],
+							[NSString stringWithFormat:NSLocalizedString(@"Error for “%1$@”:\n%2$@", @"error for bash command ($1), $2=message"), [theHintString substringWithRange:cmdRange], errorMessage]
+						);
 					}
 				} else {
 					[theHintString replaceCharactersInRange:tagRange withString:@""];
@@ -1857,24 +1859,25 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 			[snip flushCachedRegexData];
 
 			// Store found snippet range
-			snippetControlArray[snipCnt][0] = snipRange.location + targetRange.location;
-			snippetControlArray[snipCnt][1] = [theHintString length];
-			snippetControlArray[snipCnt][2] = 0;
+			snippetControlArray[snipCnt].location = snipRange.location + targetRange.location;
+			snippetControlArray[snipCnt].length   = [theHintString length];
+			snippetControlArray[snipCnt].task     = 0;
 
 			[theHintString release];
 
 			// Adjust successive snippets
-			for(i=0; i<20; i++)
-				if(snippetControlArray[i][0] > -1 && i != snipCnt && snippetControlArray[i][0] > snippetControlArray[snipCnt][0])
-					snippetControlArray[i][0] -= 3+((snipCnt>9)?2:1);
+			for(i=0; i<COUNT_OF(snippetControlArray); i++)
+				if(snippetControlArray[i].location > -1 && i != snipCnt && snippetControlArray[i].location > snippetControlArray[snipCnt].location)
+					snippetControlArray[i].location -= 3+((snipCnt>9)?2:1);
 
 		}
 
 		// Parse for mirrored snippets
 		while([snip isMatchedByRegex:mirror_re]) {
 			mirroredCounter++;
-			if(mirroredCounter > 19) {
-				NSLog(@"Only 20 mirrored snippet placeholders allowed.");
+			if(mirroredCounter >= COUNT_OF(snippetMirroredControlArray)) {
+				NSLog(@"Only %lu mirrored snippet placeholders allowed.",COUNT_OF(snippetMirroredControlArray));
+				mirroredCounter--; //go back by one or the code below will do an out-of-bounds array access
 				NSBeep();
 				break;
 			} else {
@@ -1893,14 +1896,14 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 				[snip flushCachedRegexData];
 
 				// Store found mirrored snippet range
-				snippetMirroredControlArray[mirroredCounter][0] = snipCnt;
-				snippetMirroredControlArray[mirroredCounter][1] = snipRange.location + targetRange.location;
-				snippetMirroredControlArray[mirroredCounter][2] = 0;
+				snippetMirroredControlArray[mirroredCounter].snippet  = snipCnt;
+				snippetMirroredControlArray[mirroredCounter].location = snipRange.location + targetRange.location;
+				snippetMirroredControlArray[mirroredCounter].length   = 0;
 
 				// Adjust successive snippets
-				for(i=0; i<20; i++)
-					if(snippetControlArray[i][0] > -1 && snippetControlArray[i][0] > snippetMirroredControlArray[mirroredCounter][1])
-						snippetControlArray[i][0] -= 1+((snipCnt>9)?2:1);
+				for(i=0; i<COUNT_OF(snippetControlArray); i++)
+					if(snippetControlArray[i].location > -1 && snippetControlArray[i].location > snippetMirroredControlArray[mirroredCounter].location)
+						snippetControlArray[i].location -= 1+((snipCnt>9)?2:1);
 
 				[snip flushCachedRegexData];
 			}
@@ -1908,45 +1911,48 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		// Preset mirrored snippets with according snippet content
 		if(mirroredCounter > -1) {
 			for(i=0; i<=mirroredCounter; i++) {
-				if(snippetControlArray[snippetMirroredControlArray[i][0]][0] > -1 && snippetControlArray[snippetMirroredControlArray[i][0]][1] > 0) {
-					[snip replaceCharactersInRange:NSMakeRange(snippetMirroredControlArray[i][1]-targetRange.location, snippetMirroredControlArray[i][2]) 
-										withString:[snip substringWithRange:NSMakeRange(snippetControlArray[snippetMirroredControlArray[i][0]][0]-targetRange.location, snippetControlArray[snippetMirroredControlArray[i][0]][1])]];
-					snippetMirroredControlArray[i][2] = snippetControlArray[snippetMirroredControlArray[i][0]][1];
+				MirrorControlInfo *mirrorRef = &snippetMirroredControlArray[i];
+				SnippetControlInfo *snippetRef = &snippetControlArray[mirrorRef->snippet];
+				if(snippetRef->location > -1 && snippetRef->length > 0) {
+					NSRange copyToRange   = NSMakeRange(mirrorRef->location-targetRange.location, mirrorRef->length);
+					NSRange copyFromRange = NSMakeRange(snippetRef->location-targetRange.location, snippetRef->length);
+					[snip replaceCharactersInRange:copyToRange withString:[snip substringWithRange:copyFromRange]];
+					mirrorRef->length = snippetRef->length;
 				}
 				// Adjust successive snippets
-				for(j=0; j<20; j++)
-					if(snippetControlArray[j][0] > -1 && snippetControlArray[j][0] > snippetMirroredControlArray[i][1])
-						snippetControlArray[j][0] += snippetControlArray[snippetMirroredControlArray[i][0]][1];
+				for(j=0; j<COUNT_OF(snippetControlArray); j++)
+					if(snippetControlArray[j].location > -1 && snippetControlArray[j].location > mirrorRef->location)
+						snippetControlArray[j].location += snippetRef->length;
 				// Adjust successive mirrored snippets
 				for(j=0; j<=mirroredCounter; j++)
-					if(snippetMirroredControlArray[j][1] > snippetMirroredControlArray[i][1])
-						snippetMirroredControlArray[j][1] += snippetControlArray[snippetMirroredControlArray[i][0]][1];
+					if(snippetMirroredControlArray[j].location > mirrorRef->location)
+						snippetMirroredControlArray[j].location += snippetRef->length;
 			}
 		}
 
 		if(snippetControlCounter > -1) {
 			// Store the end for tab out
 			snippetControlMax++;
-			snippetControlArray[snippetControlMax][0] = targetRange.location + [snip length];
-			snippetControlArray[snippetControlMax][1] = 0;
-			snippetControlArray[snippetControlMax][2] = 0;
+			snippetControlArray[snippetControlMax] = (SnippetControlInfo){targetRange.location + [snip length], 0, 0};
 		}
 
 		// unescape escaped snippets and re-adjust successive snippet locations : \${1:a} → ${1:a}
-		NSString *ure = @"(?s)\\\\\\$\\{(1?\\d):(.{0}|.*?[^\\\\])\\}";
-		while([snip isMatchedByRegex:ure]) {
-			NSRange escapeRange = [snip rangeOfRegex:ure capture:0L];
-			[snip replaceCharactersInRange:escapeRange withString:[snip substringWithRange:NSMakeRange(escapeRange.location+1,escapeRange.length-1)]];
-			NSInteger loc = escapeRange.location + targetRange.location;
-			[snip flushCachedRegexData];
-			for(i=0; i<=snippetControlMax; i++)
-				if(snippetControlArray[i][0] > -1 && snippetControlArray[i][0] > loc)
-					snippetControlArray[i][0]--;
-			// Adjust mirrored snippets
-			if(mirroredCounter > -1)
-				for(i=0; i<=mirroredCounter; i++)
-					if(snippetMirroredControlArray[i][0] > -1 && snippetMirroredControlArray[i][1] > loc)
-						snippetMirroredControlArray[i][1]--;
+		// unescape escaped mirrored snippets and re-adjust successive snippet locations : \$1 → $1
+		for (NSString *regex in @[@"(?s)\\\\\\$\\{(1?\\d):(.{0}|.*?[^\\\\])\\}",@"(?s)\\\\\\$(1?\\d)(?=\\D)"]) {
+			while([snip isMatchedByRegex:regex]) {
+				NSRange escapeRange = [snip rangeOfRegex:regex capture:0L];
+				[snip replaceCharactersInRange:escapeRange withString:[snip substringWithRange:NSMakeRange(escapeRange.location+1,escapeRange.length-1)]];
+				NSInteger loc = escapeRange.location + targetRange.location;
+				[snip flushCachedRegexData];
+				for(i=0; i<=snippetControlMax; i++)
+					if(snippetControlArray[i].location > -1 && snippetControlArray[i].location > loc)
+						snippetControlArray[i].location--;
+				// Adjust mirrored snippets
+				if(mirroredCounter > -1)
+					for(i=0; i<=mirroredCounter; i++)
+						if(snippetMirroredControlArray[i].snippet > -1 && snippetMirroredControlArray[i].location > loc)
+							snippetMirroredControlArray[i].location--;
+			}
 		}
 
 		// Insert favorite query by selecting the tab trigger if any
@@ -1974,8 +1980,8 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		if(snippetControlCounter > -1) {
 			// Find and select first defined snippet
 			currentSnippetIndex = 0;
-			// Look for next defined snippet since snippet numbers must not serial like 1, 5, and 12 e.g.
-			while(snippetControlArray[currentSnippetIndex][0] == -1 && currentSnippetIndex < 20)
+			// Look for next defined snippet since snippet numbers might not be serial like 1, 5, and 12 e.g.
+			while(snippetControlArray[currentSnippetIndex].location == -1 && currentSnippetIndex < COUNT_OF(snippetControlArray))
 				currentSnippetIndex++;
 			[self selectCurrentSnippet];
 		}
@@ -2020,9 +2026,9 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 	for(i=0; i<=snippetControlMax; i++) {
 		j++;
 		foundSnippetIndices[j] = 0;
-		if(snippetControlArray[i][0] != -1 
-			&& caretPos >= snippetControlArray[i][0]
-			&& caretPos <= snippetControlArray[i][0] + snippetControlArray[i][1]) {
+		if(snippetControlArray[i].location != -1
+			&& caretPos >= snippetControlArray[i].location
+			&& caretPos <= snippetControlArray[i].location + snippetControlArray[i].length) {
 
 			foundSnippetIndices[j] = 1;
 			if(i == currentSnippetIndex)
@@ -2043,11 +2049,11 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 			if(foundSnippetIndices[i] == 1) {
 				if(curIndex == -1) {
 					curIndex = i;
-					smallestLength = snippetControlArray[i][1];
+					smallestLength = snippetControlArray[i].length;
 				} else {
-					if(smallestLength > snippetControlArray[i][1]) {
+					if(smallestLength > snippetControlArray[i].length) {
 						curIndex = i;
-						smallestLength = snippetControlArray[i][1];
+						smallestLength = snippetControlArray[i].length;
 					}
 				}
 			}
@@ -2186,13 +2192,13 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 
 				currentSnippetIndex--;
 
-				// Look for previous defined snippet since snippet numbers must not serial like 1, 5, and 12 e.g.
-				while(snippetControlArray[currentSnippetIndex][0] == -1 && currentSnippetIndex > -2)
+				// Look for previous defined snippet since snippet numbers might not be serial like 1, 5, and 12 e.g.
+				while(snippetControlArray[currentSnippetIndex].location == -1 && currentSnippetIndex > -2)
 					currentSnippetIndex--;
 
 				if(currentSnippetIndex < 0) {
 					currentSnippetIndex = 0;
-					while(snippetControlArray[currentSnippetIndex][0] == -1 && currentSnippetIndex < 20)
+					while(snippetControlArray[currentSnippetIndex].location == -1 && currentSnippetIndex < COUNT_OF(snippetControlArray))
 						currentSnippetIndex++;
 					NSBeep();
 				}
@@ -2204,8 +2210,8 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 
 				currentSnippetIndex++;
 
-				// Look for next defined snippet since snippet numbers must not serial like 1, 5, and 12 e.g.
-				while(snippetControlArray[currentSnippetIndex][0] == -1 && currentSnippetIndex < 20)
+				// Look for next defined snippet since snippet numbers might not be serial like 1, 5, and 12 e.g.
+				while(snippetControlArray[currentSnippetIndex].location == -1 && currentSnippetIndex < COUNT_OF(snippetControlArray))
 					currentSnippetIndex++;
 
 				if(currentSnippetIndex > snippetControlMax) { // for safety reasons
@@ -2237,22 +2243,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		}
 #endif
 	}
-
-#ifndef SP_CODA
-	// Note: switch(insertedCharacter) {} does not work instead use charactersIgnoringModifiers
-	if([charactersIgnMod isEqualToString:@"h"]) // ^H show MySQL Help
-		if(curFlags==(NSControlKeyMask))
-		{
-			[self showMySQLHelpForCurrentWord:self];
-			return;
-		}
-#endif
-	if([charactersIgnMod isEqualToString:@"y"]) // ^Y select current query
-		if(curFlags==(NSControlKeyMask))
-		{
-			[self selectCurrentQuery];
-			return;
-		}
+  
 	if(curFlags & NSCommandKeyMask) {
 		if([charactersIgnMod isEqualToString:@"+"] || [charactersIgnMod isEqualToString:@"="]) // increase text size by 1; ⌘+, ⌘=, and ⌘ numpad +
 		{
@@ -2915,7 +2906,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 #endif
 	if(tabStopWidth < 1) tabStopWidth = 1;
 
-	float tabWidth = NSSizeToCGSize([@" " sizeWithAttributes:[NSDictionary dictionaryWithObject:tvFont forKey:NSFontAttributeName]]).width;
+	float tabWidth = NSSizeToCGSize([@" " sizeWithAttributes:@{NSFontAttributeName : tvFont}]).width;
 	tabWidth = (float)tabStopWidth * tabWidth;
 
 	NSInteger numberOfTabs = 256/tabStopWidth;
@@ -2981,7 +2972,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 				// Is the caret still inside a snippet
 				if([self checkForCaretInsideSnippet]) {
 					for(NSInteger i=0; i<snippetControlMax; i++) {
-						if(snippetControlArray[i][0] > -1) {
+						if(snippetControlArray[i].location > -1) {
 							// choose the colors for the snippet parts
 							if(i == currentSnippetIndex) {
 								[[NSColor colorWithCalibratedRed:1.0f green:0.6f blue:0.0f alpha:0.4f] setFill];
@@ -2990,7 +2981,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 								[[NSColor colorWithCalibratedRed:1.0f green:0.8f blue:0.2f alpha:0.2f] setFill];
 								[[NSColor colorWithCalibratedRed:1.0f green:0.8f blue:0.2f alpha:0.5f] setStroke];
 							}
-							NSBezierPath *snippetPath = [self roundedBezierPathAroundRange: NSMakeRange(snippetControlArray[i][0],snippetControlArray[i][1]) ];
+							NSBezierPath *snippetPath = [self roundedBezierPathAroundRange: NSMakeRange(snippetControlArray[i].location,snippetControlArray[i].length) ];
 							[snippetPath fill];
 							[snippetPath stroke];
 						}
@@ -3115,9 +3106,8 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 	}
 	if ([[[self class] defaultMenu] itemWithTag:SP_CQ_SELECT_CURRENT_QUERY_MENU_ITEM_TAG] == nil)
 	{
-		NSMenuItem *selectCurrentQueryMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Select Active Query", @"Select Active Query") action:@selector(selectCurrentQuery) keyEquivalent:@"y"];
+		NSMenuItem *selectCurrentQueryMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Select Active Query", @"Select Active Query") action:@selector(selectCurrentQuery:) keyEquivalent:@""];
 		[selectCurrentQueryMenuItem setTag:SP_CQ_SELECT_CURRENT_QUERY_MENU_ITEM_TAG];
-		[selectCurrentQueryMenuItem setKeyEquivalentModifierMask:NSControlKeyMask];
 		[menu insertItem:selectCurrentQueryMenuItem atIndex:4];
 		[selectCurrentQueryMenuItem release];
 	}
@@ -3133,7 +3123,7 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 	}
 
 #ifndef SP_CODA
-	[[NSApp delegate] reloadBundles:self];
+	[SPAppDelegate reloadBundles:self];
 
 	// Remove 'Bundles' sub menu and separator
 	NSMenuItem *bItem = [menu itemWithTag:10000000];
@@ -3143,8 +3133,8 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		[menu removeItem:bItem];
 	}
 
-	NSArray *bundleCategories = [[NSApp delegate] bundleCategoriesForScope:SPBundleScopeInputField];
-	NSArray *bundleItems = [[NSApp delegate] bundleItemsForScope:SPBundleScopeInputField];
+	NSArray *bundleCategories = [SPAppDelegate bundleCategoriesForScope:SPBundleScopeInputField];
+	NSArray *bundleItems = [SPAppDelegate bundleItemsForScope:SPBundleScopeInputField];
 
 	// Add 'Bundles' sub menu for custom query editor only so far if bundles with scope 'editor' were found
 	if(customQueryInstance && bundleItems && [bundleItems count]) {
@@ -3209,29 +3199,33 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
  */
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem 
 {
-
-	// Enable or disable the search in the MySQL help menu item depending on whether there is a 
+	// Enable or disable the search in the MySQL help menu item depending on whether there is a
 	// selection and whether it is a reasonable length.
 	if ([menuItem action] == @selector(showMySQLHelpForCurrentWord:)) {
+		if ([self selectedRange].length > 0) {
+			[menuItem setTitle:NSLocalizedString(@"MySQL Help for Selection", @"MySQL Help for Selection")];
+		} else {
+			[menuItem setTitle: NSLocalizedString(@"MySQL Help for Word", @"MySQL Help for Word")];
+		}
 		NSUInteger stringSize = [self getRangeForCurrentWord].length;
-		return (stringSize || stringSize > 64);
+		return (0 < stringSize && stringSize < 65); // 1 ≤ stringSize ≤ 64
 	}
 	// Enable Copy as RTF if something is selected
 	if ([menuItem action] == @selector(copyAsRTF)) {
 		return ([self selectedRange].length>0);
 	}
 	// Validate Select Active Query
-	if ([menuItem action] == @selector(selectCurrentQuery)) {
+	if ([menuItem action] == @selector(selectCurrentQuery:)) {
 		return ([self isEditable] && [[self delegate] isKindOfClass:[SPCustomQuery class]]);
 	}
 	// Disable "Copy with Column Names" and "Copy as SQL INSERT"
 	// in the main menu
 	if ( [menuItem tag] == SPEditMenuCopyWithColumns
-		|| [menuItem tag] == SPEditCopyAsSQL ) {
+		|| [menuItem tag] == SPEditMenuCopyAsSQL) {
 		return NO;
 	}
 
-	return YES;
+	return [super validateMenuItem:menuItem];
 }
 
 /**
@@ -3333,20 +3327,19 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 		// Re-calculate snippet ranges if snippet session is active
 		if(snippetControlCounter > -1 && !snippetWasJustInserted && !isProcessingMirroredSnippets) {
 			// Remove any fully nested snippets relative to the current snippet which was edited
-			NSInteger currentSnippetLocation = snippetControlArray[currentSnippetIndex][0];
-			NSInteger currentSnippetMaxRange = snippetControlArray[currentSnippetIndex][0] + snippetControlArray[currentSnippetIndex][1];
+			SnippetControlInfo *currentSnippetRef = &snippetControlArray[currentSnippetIndex];
+			NSInteger currentSnippetLocation = currentSnippetRef->location;
+			NSInteger currentSnippetMaxRange = currentSnippetRef->location + currentSnippetRef->length;
 			NSInteger i;
 			for(i=0; i<snippetControlMax; i++) {
-				if(snippetControlArray[i][0] > -1
+				if(snippetControlArray[i].location > -1
 					&& i != currentSnippetIndex
-					&& snippetControlArray[i][0] >= currentSnippetLocation
-					&& snippetControlArray[i][0] <= currentSnippetMaxRange
-					&& snippetControlArray[i][0] + snippetControlArray[i][1] >= currentSnippetLocation
-					&& snippetControlArray[i][0] + snippetControlArray[i][1] <= currentSnippetMaxRange
+					&& snippetControlArray[i].location >= currentSnippetLocation
+					&& snippetControlArray[i].location <= currentSnippetMaxRange
+					&& snippetControlArray[i].location + snippetControlArray[i].length >= currentSnippetLocation
+					&& snippetControlArray[i].location + snippetControlArray[i].length <= currentSnippetMaxRange
 					) {
-						snippetControlArray[i][0] = -1;
-						snippetControlArray[i][1] = -1;
-						snippetControlArray[i][2] = -1;
+						snippetControlArray[i] = (SnippetControlInfo){-1, -1, -1};
 				}
 			}
 
@@ -3354,26 +3347,26 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 			NSUInteger changeInLength = [textStore changeInLength];
 
 			// Adjust length change to current snippet
-			snippetControlArray[currentSnippetIndex][1] += changeInLength;
+			currentSnippetRef->length += changeInLength;
 			// If length < 0 break snippet input
-			if(snippetControlArray[currentSnippetIndex][1] < 0) {
+			if(currentSnippetRef->length < 0) {
 				[self endSnippetSession];
 			} else {
 				// Adjust start position of snippets after caret position
 				for(i=0; i<=snippetControlMax; i++) {
-					if(snippetControlArray[i][0] > -1 && i != currentSnippetIndex) {
-						if(editStartPosition < snippetControlArray[i][0]) {
-							snippetControlArray[i][0] += changeInLength;
-						} else if(editStartPosition >= snippetControlArray[i][0] && editStartPosition <= snippetControlArray[i][0] + snippetControlArray[i][1]) {
-							snippetControlArray[i][1] += changeInLength;
+					if(snippetControlArray[i].location > -1 && i != currentSnippetIndex) {
+						if(editStartPosition < snippetControlArray[i].location) {
+							snippetControlArray[i].location += changeInLength;
+						} else if(editStartPosition >= snippetControlArray[i].location && editStartPosition <= snippetControlArray[i].location + snippetControlArray[i].length) {
+							snippetControlArray[i].length += changeInLength;
 						}
 					}
 				}
 				// Adjust start position of mirrored snippets after caret position
 				if(mirroredCounter > -1)
 					for(i=0; i<=mirroredCounter; i++) {
-						if(editStartPosition < snippetMirroredControlArray[i][1]) {
-							snippetMirroredControlArray[i][1] += changeInLength;
+						if(editStartPosition < snippetMirroredControlArray[i].location) {
+							snippetMirroredControlArray[i].location += changeInLength;
 						}
 					}
 			}
@@ -3689,18 +3682,18 @@ static inline NSPoint SPPointOnLine(NSPoint a, NSPoint b, CGFloat t) { return NS
 
 	if (completionIsOpen) [completionPopup close], completionIsOpen = NO;
 #ifndef SP_CODA
-	[prefs release];
+	SPClear(prefs);
 #endif
-	[lineNumberView release];
-	if(queryHiliteColor) [queryHiliteColor release];
-	if(queryEditorBackgroundColor) [queryEditorBackgroundColor release];
-	if(commentColor) [commentColor release];
-	if(quoteColor) [quoteColor release];
-	if(keywordColor) [keywordColor release];
-	if(backtickColor) [backtickColor release];
-	if(numericColor) [numericColor release];
-	if(variableColor) [variableColor release];
-	if(otherTextColor) [otherTextColor release];
+	SPClear(lineNumberView);
+	if(queryHiliteColor)           SPClear(queryHiliteColor);
+	if(queryEditorBackgroundColor) SPClear(queryEditorBackgroundColor);
+	if(commentColor)               SPClear(commentColor);
+	if(quoteColor)                 SPClear(quoteColor);
+	if(keywordColor)               SPClear(keywordColor);
+	if(backtickColor)              SPClear(backtickColor);
+	if(numericColor)               SPClear(numericColor);
+	if(variableColor)              SPClear(variableColor);
+	if(otherTextColor)             SPClear(otherTextColor);
 	[super dealloc];
 }
 

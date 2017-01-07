@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFieldEditorController.m
 //  sequel-pro
 //
@@ -28,12 +26,9 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPFieldEditorController.h"
-#ifndef SP_CODA
-#import "QLPreviewPanel.h"
-#endif
 #import "RegexKitLite.h"
 #import "SPTooltip.h"
 #import "SPGeometryDataView.h"
@@ -45,20 +40,32 @@
 
 #import <SPMySQL/SPMySQL.h>
 
+#if __MAC_OS_X_VERSION_MAX_ALLOWED < __MAC_10_7
+@interface NSTextView (LionPlus)
+- (void)setUsesFindBar:(BOOL)value;
+- (BOOL)usesFindBar;
+@end
+#endif
+
+typedef enum {
+	TextSegment = 0,
+	ImageSegment,
+	HexSegment
+} FieldEditorSegment;
+
 @interface SPFieldEditorController (SPFieldEditorControllerDelegate)
 
 - (void)processFieldEditorResult:(id)data contextInfo:(NSDictionary*)contextInfo;
 
 @end
 
-#ifdef SP_CODA
-/* Suppress deprecation warning for beginSheetForDirectory: until Sequel Pro team can migrate */
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-
 @implementation SPFieldEditorController
 
 @synthesize editedFieldInfo;
+@synthesize textMaxLength = maxTextLength;
+@synthesize fieldType;
+@synthesize fieldEncoding;
+@synthesize allowNULL = _allowNULL;
 
 /**
  * Initialise an instance of SPFieldEditorController using the XIB “FieldEditorSheet.xib”. Init the available Quciklook format by reading
@@ -93,9 +100,21 @@
 		// Allow the user to enter cmd+return to close the edit sheet in addition to fn+return
 		[editSheetOkButton setKeyEquivalentModifierMask:NSCommandKeyMask];
 
-		// Permit the field edit sheet to become main if necessary; this allows fields within the sheet to
-		// support full interactivity, for example use of the NSFindPanel inside NSTextViews.
-		[editSheet setIsSheetWhichCanBecomeMain:YES];
+		if([editTextView respondsToSelector:@selector(setUsesFindBar:)])
+			// 10.7+
+			// Stealing the main window from the actual main window will cause
+			// a UI bug with the tab bar and the find panel was really the only
+			// thing that had an issue with not working with sheets.
+			// The find bar works fine without hackery.
+			[editTextView setUsesFindBar:YES];
+		else {
+			// Permit the field edit sheet to become main if necessary; this allows fields within the sheet to
+			// support full interactivity, for example use of the NSFindPanel inside NSTextViews.
+			[editSheet setIsSheetWhichCanBecomeMain:YES];
+		}
+		
+		[editTextView setAutomaticDashSubstitutionEnabled:NO];
+		[editTextView setAutomaticQuoteSubstitutionEnabled:NO];
 
 		allowUndo = NO;
 		selectionChanged = NO;
@@ -150,7 +169,7 @@
 			}
 		}
 
-		qlTypes = [[NSDictionary dictionaryWithObject:qlTypesItems forKey:SPQuickLookTypes] retain];
+		qlTypes = [@{SPQuickLookTypes : qlTypesItems} retain];
 		[qlTypesItems release];
 #endif
 
@@ -171,19 +190,19 @@
 #ifndef SP_CODA
 	// On Mac OSX 10.6 QuickLook runs non-modal thus order out the panel
 	// if still visible
-	if ([[NSClassFromString(@"QLPreviewPanel") sharedPreviewPanel] isVisible]) {
-		[[NSClassFromString(@"QLPreviewPanel") sharedPreviewPanel] orderOut:nil];
+	if ([[QLPreviewPanel sharedPreviewPanel] isVisible]) {
+		[[QLPreviewPanel sharedPreviewPanel] orderOut:nil];
 	}
 #endif
 
-	if ( sheetEditData ) [sheetEditData release];
+	if ( sheetEditData ) SPClear(sheetEditData);
 #ifndef SP_CODA
-	if ( qlTypes ) [qlTypes release];
+	if ( qlTypes )       SPClear(qlTypes);
 #endif
-	if ( tmpFileName ) [tmpFileName release];
-	if ( tmpDirPath ) [tmpDirPath release];
-	if ( esUndoManager ) [esUndoManager release];
-	if ( contextInfo ) [contextInfo release];
+	if ( tmpFileName )   SPClear(tmpFileName);
+	if ( tmpDirPath )    SPClear(tmpDirPath);
+	if ( esUndoManager ) SPClear(esUndoManager);
+	if ( contextInfo )   SPClear(contextInfo);
 	
 	[super dealloc];
 }
@@ -202,9 +221,14 @@
  * @param sender The calling instance.
  * @param contextInfo context info for processing the edited data in sender.
  */
-- (void)editWithObject:(id)data fieldName:(NSString*)fieldName usingEncoding:(NSStringEncoding)anEncoding
-		isObjectBlob:(BOOL)isFieldBlob isEditable:(BOOL)isEditable withWindow:(NSWindow *)theWindow
-		sender:(id)sender contextInfo:(NSDictionary*)theContextInfo
+- (void)editWithObject:(id)data
+			 fieldName:(NSString *)fieldName
+		 usingEncoding:(NSStringEncoding)anEncoding
+		  isObjectBlob:(BOOL)isFieldBlob
+			isEditable:(BOOL)isEditable
+			withWindow:(NSWindow *)theWindow
+				sender:(id)sender
+		   contextInfo:(NSDictionary *)theContextInfo
 {
 	usedSheet = nil;
 
@@ -216,29 +240,38 @@
 
 	// Set field label
 	NSMutableString *label = [NSMutableString string];
+
 	[label appendFormat:@"“%@”", fieldName];
-	if([fieldType length] || maxTextLength > 0 || [fieldEncoding length] || !_allowNULL)
+
+	if ([fieldType length] || maxTextLength > 0 || [fieldEncoding length] || !_allowNULL)
 		[label appendString:@" – "];
-	if([fieldType length])
+
+	if ([fieldType length])
 		[label appendString:fieldType];
-	if(maxTextLength > 0)
+
+	if (maxTextLength > 0)
 		[label appendFormat:@"(%lld) ", maxTextLength];
-	if(!_allowNULL)
+
+	if (!_allowNULL)
 		[label appendString:@"NOT NULL "];
-	if([fieldEncoding length])
+
+	if ([fieldEncoding length])
 		[label appendString:fieldEncoding];
 
-	if([fieldType length] && [[fieldType uppercaseString] isEqualToString:@"BIT"]) {
+	CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
+	if ([fieldType length] && [[fieldType uppercaseString] isEqualToString:@"BIT"]) {
 
 		sheetEditData = [(NSString*)data retain];
 
 		[bitSheetNULLButton setEnabled:_allowNULL];
 
 		// Check for NULL
-		if([sheetEditData isEqualToString:[prefs objectForKey:SPNullValue]]) {
+		if ([sheetEditData isEqualToString:[prefs objectForKey:SPNullValue]]) {
 			[bitSheetNULLButton setState:NSOnState];
 			[self setToNull:bitSheetNULLButton];
-		} else {
+		}
+		else {
 			[bitSheetNULLButton setState:NSOffState];
 		}
 
@@ -247,12 +280,18 @@
 		// Init according bit check boxes
 		NSUInteger i = 0;
 		NSUInteger maxBit = (NSUInteger)((maxTextLength > 64) ? 64 : maxTextLength);
-		if([bitSheetNULLButton state] == NSOffState && maxBit <= [(NSString*)sheetEditData length])
-			for( i = 0; i<maxBit; i++ )
+
+		if ([bitSheetNULLButton state] == NSOffState && maxBit <= [(NSString*)sheetEditData length])
+			for (i = 0; i < maxBit; i++)
+			{
 				[[self valueForKeyPath:[NSString stringWithFormat:@"bitSheetBitButton%ld", (long)i]]
-					setState:([(NSString*)sheetEditData characterAtIndex:(maxBit-i-1)] == '1') ? NSOnState : NSOffState];
-		for( i = maxBit; i<64; i++ )
+				 setState:([(NSString*)sheetEditData characterAtIndex:(maxBit - i - 1)] == '1') ? NSOnState : NSOffState];
+			}
+
+		for (i = maxBit; i < 64; i++)
+		{
 			[[self valueForKeyPath:[NSString stringWithFormat:@"bitSheetBitButton%ld", (long)i]] setEnabled:NO];
+		}
 
 		[self updateBitSheet];
 
@@ -273,7 +312,7 @@
 #endif
 			[editTextView setFont:
 #ifndef SP_CODA
-			([prefs boolForKey:SPUseMonospacedFonts]) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : 
+			[prefs boolForKey:SPUseMonospacedFonts] ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] :
 #endif			
 			[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 #ifndef SP_CODA
@@ -291,11 +330,11 @@
 #endif
 		];
 
-		[hexTextView setFont:[NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]]];
+		[hexTextView setFont:[NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize]];
 
 		[editSheetFieldName setStringValue:[NSString stringWithFormat:@"%@: %@", NSLocalizedString(@"Field", @"Field"), label]];
 
-		// hide all views in editSheet
+		// Hide all views in editSheet
 		[hexTextView setHidden:YES];
 		[hexTextScrollView setHidden:YES];
 		[editImage setHidden:YES];
@@ -314,11 +353,12 @@
 		encoding = anEncoding;
 
 		_isBlob = isFieldBlob;
-		BOOL _isBINARY = ([[fieldType uppercaseString] isEqualToString:@"BINARY"] || [[fieldType uppercaseString] isEqualToString:@"VARBINARY"]);
+		
+		BOOL isBinary = ([[fieldType uppercaseString] isEqualToString:@"BINARY"] || [[fieldType uppercaseString] isEqualToString:@"VARBINARY"]);
 
 		sheetEditData = [data retain];
 
-		// hide all views in editSheet
+		// Hide all views in editSheet
 		[hexTextView setHidden:YES];
 		[hexTextScrollView setHidden:YES];
 		[editImage setHidden:YES];
@@ -326,13 +366,13 @@
 		[editTextScrollView setHidden:YES];
 
 		// Hide QuickLook button and text/image/hex control for text data
-		[editSheetQuickLookButton setHidden:((!_isBlob && !_isBINARY) || _isGeometry)];
-		[editSheetSegmentControl setHidden:(!_isBlob && !_isBINARY && !_isGeometry)];
+		[editSheetQuickLookButton setHidden:((!_isBlob && !isBinary) || _isGeometry)];
+		[editSheetSegmentControl setHidden:(!_isBlob && !isBinary && !_isGeometry)];
 
-		[editSheetSegmentControl setEnabled:YES forSegment:1];
+		[editSheetSegmentControl setEnabled:YES forSegment:ImageSegment];
 
 		// Set window's min size since no segment and quicklook buttons are hidden
-		if (_isBlob || _isBINARY || _isGeometry) {
+		if (_isBlob || isBinary || _isGeometry) {
 			[usedSheet setFrameAutosaveName:@"SPFieldEditorBlobSheet"];
 			[usedSheet setMinSize:NSMakeSize(650, 200)];
 		} 
@@ -362,34 +402,46 @@
 		[editSheetProgressBar startAnimation:self];
 
 		NSImage *image = nil;
-		if ( [sheetEditData isKindOfClass:[NSData class]] ) {
+
+		if ([sheetEditData isKindOfClass:[NSData class]]) {
 			image = [[[NSImage alloc] initWithData:sheetEditData] autorelease];
 
 			// Set hex view to "" - load on demand only
 			[hexTextView setString:@""];
 
 			stringValue = [[NSString alloc] initWithData:sheetEditData encoding:encoding];
-			if (stringValue == nil)
+
+			if (stringValue == nil) {
 				stringValue = [[NSString alloc] initWithData:sheetEditData encoding:NSASCIIStringEncoding];
+			}
+
+			if (isBinary) {
+				stringValue	= [[NSString alloc] initWithFormat:@"0x%@", [sheetEditData dataToHexString]];
+			}
 
 			[hexTextView setHidden:NO];
 			[hexTextScrollView setHidden:NO];
 			[editImage setHidden:YES];
 			[editTextView setHidden:YES];
 			[editTextScrollView setHidden:YES];
-			[editSheetSegmentControl setSelectedSegment:2];
-		} else if ([sheetEditData isKindOfClass:[SPMySQLGeometryData class]]) {
+			[editSheetSegmentControl setSelectedSegment:HexSegment];
+		}
+		else if ([sheetEditData isKindOfClass:[SPMySQLGeometryData class]]) {
 			SPGeometryDataView *v = [[[SPGeometryDataView alloc] initWithCoordinates:[sheetEditData coordinates] targetDimension:2000.0f] autorelease];
+
 			image = [v thumbnailImage];
+
 			stringValue = [[sheetEditData wktString] retain];
+
 			[hexTextView setString:@""];
 			[hexTextView setHidden:YES];
 			[hexTextScrollView setHidden:YES];
-			[editSheetSegmentControl setEnabled:NO forSegment:2];
-			[editSheetSegmentControl setSelectedSegment:0];
+			[editSheetSegmentControl setEnabled:NO forSegment:HexSegment];
+			[editSheetSegmentControl setSelectedSegment:TextSegment];
 			[editTextView setHidden:NO];
 			[editTextScrollView setHidden:NO];
-		} else {
+		}
+		else {
 			stringValue = [sheetEditData retain];
 
 			[hexTextView setString:@""];
@@ -399,7 +451,7 @@
 			[editImage setHidden:YES];
 			[editTextView setHidden:NO];
 			[editTextScrollView setHidden:NO];
-			[editSheetSegmentControl setSelectedSegment:0];
+			[editSheetSegmentControl setSelectedSegment:TextSegment];
 		}
 
 		if (image) {
@@ -410,46 +462,48 @@
 			if(!_isGeometry) {
 				[editTextView setHidden:YES];
 				[editTextScrollView setHidden:YES];
-				[editSheetSegmentControl setSelectedSegment:1];
+				[editSheetSegmentControl setSelectedSegment:ImageSegment];
 			}
-		} else {
+		}
+		else {
 			[editImage setImage:nil];
 		}
+
 		if (stringValue) {
 			[editTextView setString:stringValue];
 
-			if(image == nil) {
-				if(!_isBINARY) {
+			if (image == nil) {
+				if (!isBinary) {
 					[hexTextView setHidden:YES];
 					[hexTextScrollView setHidden:YES];
-				} else {
-					[editSheetSegmentControl setEnabled:NO forSegment:1];
 				}
+				else {
+					[editSheetSegmentControl setEnabled:NO forSegment:ImageSegment];
+				}
+
 				[editImage setHidden:YES];
 				[editTextView setHidden:NO];
 				[editTextScrollView setHidden:NO];
-				[editSheetSegmentControl setSelectedSegment:0];
+				[editSheetSegmentControl setSelectedSegment:TextSegment];
 			}
 
 			// Locate the caret in editTextView
 			// (restore a given selection coming from the in-cell editing mode)
 			NSRange selRange = [callerInstance fieldEditorSelectedRange];
+
 			[editTextView setSelectedRange:selRange];
 			[callerInstance setFieldEditorSelectedRange:NSMakeRange(0,0)];
 
 			// If the string content is NULL select NULL for convenience
-			if([stringValue isEqualToString:[prefs objectForKey:SPNullValue]])
+			if ([stringValue isEqualToString:[prefs objectForKey:SPNullValue]]) {
 				[editTextView setSelectedRange:NSMakeRange(0,[[editTextView string] length])];
+			}
 
 			// Set focus
-			if(image == nil || _isGeometry)
-				[usedSheet makeFirstResponder:editTextView];
-			else
-				[usedSheet makeFirstResponder:editImage];
-
+			[usedSheet makeFirstResponder:image == nil || _isGeometry ? editTextView : editImage];
 		}
 		
-		if(stringValue) [stringValue release], stringValue = nil;
+		if (stringValue) SPClear(stringValue);
 
 		editSheetWillBeInitialized = NO;
 
@@ -458,63 +512,20 @@
 }
 
 /**
- * Set the maximum text length of the underlying table field for input validation.
- *
- * @param length The maximum text length
- */
-- (void)setTextMaxLength:(NSUInteger)length
-{
-	maxTextLength = length;
-}
-
-/**
- * Set the field type of the underlying table field for input validation.
- *
- * @param aType The field type which will be used for dispatching which sheet will be shown. If type == BIT the bitSheet will be used otherwise the editSheet.
- */
-- (void)setFieldType:(NSString*)aType
-{
-	fieldType = aType;
-}
-
-/**
- * Set the field encoding of the underlying table field for displaying it to the user.
- *
- * @param aEncoding encoding
- */
-- (void)setFieldEncoding:(NSString*)aEncoding
-{
-	fieldEncoding = aEncoding;
-}
-
-/**
- * Set if underlying table field allows NULL for several validations.
- *
- * @param allowNULL If allowNULL is YES NULL value is allowed for the underlying table field
- */
-- (void)setAllowNULL:(BOOL)allowNULL
-{
-	_allowNULL = allowNULL;
-}
-
-/**
  * Segement controller for text/image/hex buttons in editSheet
  */
 - (IBAction)segmentControllerChanged:(id)sender
 {
-	switch([sender selectedSegment]){
-		case 0: // text
+	switch((FieldEditorSegment)[sender selectedSegment]){
+		case TextSegment:
 			[editTextView setHidden:NO];
 			[editTextScrollView setHidden:NO];
 			[editImage setHidden:YES];
 			[hexTextView setHidden:YES];
 			[hexTextScrollView setHidden:YES];
 			[usedSheet makeFirstResponder:editTextView];
-#ifndef SP_CODA
-			[[NSApp mainWindow] makeFirstResponder:editTextView];
-#endif
 			break;
-		case 1: // image
+		case ImageSegment:
 			[editTextView setHidden:YES];
 			[editTextScrollView setHidden:YES];
 			[editImage setHidden:NO];
@@ -522,7 +533,7 @@
 			[hexTextScrollView setHidden:YES];
 			[usedSheet makeFirstResponder:editImage];
 			break;
-		case 2: // hex - load on demand
+		case HexSegment:
 			[usedSheet makeFirstResponder:hexTextView];
 			if([[hexTextView string] isEqualToString:@""]) {
 				[editSheetProgressBar startAnimation:self];
@@ -547,11 +558,12 @@
  */
 - (IBAction)openEditSheet:(id)sender
 {
-	[[NSOpenPanel openPanel] beginSheetForDirectory:nil
-											   file:@""
-									 modalForWindow:usedSheet
-									  modalDelegate:self didEndSelector:@selector(openPanelDidEnd:returnCode:contextInfo:)
-										contextInfo:NULL];
+	NSOpenPanel *panel = [NSOpenPanel openPanel];
+
+	[panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger returnCode)
+	{
+		[self openPanelDidEnd:panel returnCode:returnCode contextInfo:nil];
+	}];
 }
 
 /**
@@ -559,25 +571,23 @@
  */
 - (IBAction)saveEditSheet:(id)sender
 {
-
 	NSSavePanel *panel = [NSSavePanel savePanel];
-	NSString *fileDefault = @"";
 
-	if([editSheetSegmentControl selectedSegment] == 1 && [sheetEditData isKindOfClass:[SPMySQLGeometryData class]]) {
-		[panel setAllowedFileTypes:[NSArray arrayWithObject:@"pdf"]];
+	if ([editSheetSegmentControl selectedSegment] == ImageSegment && [sheetEditData isKindOfClass:[SPMySQLGeometryData class]]) {
+		[panel setAllowedFileTypes:@[@"pdf"]];
 		[panel setAllowsOtherFileTypes:NO];
-	} else {
+	}
+	else {
 		[panel setAllowsOtherFileTypes:YES];
 	}
+
 	[panel setCanSelectHiddenExtension:YES];
 	[panel setExtensionHidden:NO];
 
-	[panel beginSheetForDirectory:nil
-							   file:fileDefault
-					 modalForWindow:usedSheet
-					  modalDelegate:self
-					 didEndSelector:@selector(savePanelDidEnd:returnCode:contextInfo:)
-						contextInfo:NULL];
+	[panel beginSheetModalForWindow:usedSheet completionHandler:^(NSInteger returnCode)
+	{
+		[self savePanelDidEnd:panel returnCode:returnCode contextInfo:nil];
+	}];
 }
 
 - (void)sheetDidEnd:(id)sheet returnCode:(NSInteger)returnCode contextInfo:(NSString *)contextInfo
@@ -691,7 +701,7 @@
 
 		// If the image cell now contains a valid image, select the image view
 		if (image) {
-			[editSheetSegmentControl setSelectedSegment:1];
+			[editSheetSegmentControl setSelectedSegment:ImageSegment];
 			[hexTextView setHidden:YES];
 			[hexTextScrollView setHidden:YES];
 			[editImage setHidden:NO];
@@ -700,7 +710,7 @@
 
 			// Otherwise deselect the image view
 		} else {
-			[editSheetSegmentControl setSelectedSegment:0];
+			[editSheetSegmentControl setSelectedSegment:TextSegment];
 			[hexTextView setHidden:YES];
 			[hexTextScrollView setHidden:YES];
 			[editImage setHidden:YES];
@@ -734,7 +744,7 @@
 		}
 		else if ( [sheetEditData isKindOfClass:[SPMySQLGeometryData class]] ) {
 
-			if ( [editSheetSegmentControl selectedSegment] == 0 || editImage == nil ) {
+			if ( [editSheetSegmentControl selectedSegment] == TextSegment || editImage == nil ) {
 
 				[[editTextView string] writeToURL:fileURL
 										atomically:YES
@@ -855,90 +865,34 @@
 - (void)invokeQuickLookOfType:(NSString *)type treatAsText:(BOOL)isText
 {
 #ifndef SP_CODA
-	// Load QL via private framework (SDK 10.5)
-	if([[NSBundle bundleWithPath:@"/System/Library/PrivateFrameworks/QuickLookUI.framework"] load]) {
-
-		[editSheetProgressBar startAnimation:self];
-
-		[self createTemporaryQuickLookFileOfType:type treatAsText:isText];
-
-		counter++;
-
-		// Init QuickLook
-		id ql = [NSClassFromString(@"QLPreviewPanel") sharedPreviewPanel];
-
-		[[ql delegate] setDelegate:self];
-		[ql setURLs:[NSArray arrayWithObject:
-					 [NSURL fileURLWithPath:tmpFileName]] currentIndex:0 preservingDisplayState:YES];
-
-		// TODO: No interaction with iChat and iPhoto due to .scriptSuite warning:
-		// unknown image format
-		[ql setShowsAddToiPhotoButton:NO];
-		[ql setShowsiChatTheaterButton:NO];
-		// Since we are inside of editSheet we have to avoid full-screen zooming
-		// otherwise QuickLook hangs
-		[ql setShowsFullscreenButton:NO];
-		[ql setEnableDragNDrop:NO];
-		// Order out QuickLook with animation effect according to self:previewPanel:frameForURL:
-		[ql makeKeyAndOrderFrontWithEffect:2];   // 1 = fade in
-
-		// quickLookCloseMarker == 1 break the modal session
-		quickLookCloseMarker = 0;
-
-		[editSheetProgressBar stopAnimation:self];
-
-		// Run QuickLook in its own modal seesion for event handling
-		NSModalSession session = [NSApp beginModalSessionForWindow:ql];
-		for (;;) {
-			// Conditions for closing QuickLook
-			if ([NSApp runModalSession:session] != NSRunContinuesResponse
-				|| quickLookCloseMarker == 1
-				|| ![ql isVisible])
-				break;
-			[[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
-									 beforeDate:[NSDate distantFuture]];
-
-		}
-		[NSApp endModalSession:session];
-
-		// set ql's delegate to nil for dealloc
-		[[ql windowController] setDelegate:nil];
-
-	}
-	// Load QL via framework (SDK 10.5 but SP runs on 10.6)
-	// TODO: This is an hack in order to be able to support QuickLook on Mac OS X 10.5 and 10.6
-	// as long as SP will be compiled against SDK 10.5.
-	// If SP will be compiled against SDK 10.6 we can use the standard way by using
-	// the QuickLookUI which is part of the Quartz.framework. See Developer example "QuickLookDownloader"
+	// See Developer example "QuickLookDownloader"
 	// file:///Developer/Documentation/DocSets/com.apple.adc.documentation.AppleSnowLeopard.CoreReference.docset/Contents/Resources/Documents/samplecode/QuickLookDownloader/index.html#//apple_ref/doc/uid/DTS40009082
-	else if([[NSBundle bundleWithPath:@"/System/Library/Frameworks/Quartz.framework/Frameworks/QuickLookUI.framework"] load]) {
 
-		[editSheetProgressBar startAnimation:self];
+	[editSheetProgressBar startAnimation:self];
 
-		[self createTemporaryQuickLookFileOfType:type treatAsText:isText];
+	[self createTemporaryQuickLookFileOfType:type treatAsText:isText];
 
-		counter++;
+	counter++;
 
-		// TODO: If QL is  visible reload it - but how?
-		// Up to now QL will close and the user has to redo it.
-		if([[NSClassFromString(@"QLPreviewPanel") sharedPreviewPanel] isVisible]) {
-			[[NSClassFromString(@"QLPreviewPanel") sharedPreviewPanel] orderOut:nil];
-		}
-
-		[[NSClassFromString(@"QLPreviewPanel") sharedPreviewPanel] makeKeyAndOrderFront:nil];
-
-		[editSheetProgressBar stopAnimation:self];
-
-	} else {
-		[SPTooltip showWithObject:[NSString stringWithFormat:@"QuickLook is not available on that platform."]];
+	// TODO: If QL is  visible reload it - but how?
+	// Up to now QL will close and the user has to redo it.
+	if([[QLPreviewPanel sharedPreviewPanel] isVisible]) {
+		[[QLPreviewPanel sharedPreviewPanel] orderOut:nil];
 	}
+
+	[[QLPreviewPanel sharedPreviewPanel] makeKeyAndOrderFront:nil];
+
+	[editSheetProgressBar stopAnimation:self];
+
 #endif
 }
+
+#pragma mark - QLPreviewPanelController methods
 
 /**
  * QuickLook delegate for SDK 10.6. Set the Quicklook delegate to self and suppress setShowsAddToiPhotoButton since the format is unknow.
  */
-- (void)beginPreviewPanelControl:(id)panel
+- (void)beginPreviewPanelControl:(QLPreviewPanel *)panel
 {
 #ifndef SP_CODA
 
@@ -946,15 +900,13 @@
 	[panel setDelegate:self];
 	[panel setDataSource:self];
 
-	// Due to the unknown image format disable image sharing
-	[panel setShowsAddToiPhotoButton:NO];
 #endif
 }
 
 /**
  * QuickLook delegate for SDK 10.6 - not in usage.
  */
-- (void)endPreviewPanelControl:(id)panel
+- (void)endPreviewPanelControl:(QLPreviewPanel *)panel
 {
 	// This document loses its responsisibility on the preview panel
 	// Until the next call to -beginPreviewPanelControl: it must not
@@ -964,22 +916,19 @@
 /**
  * QuickLook delegate for SDK 10.6
  */
-- (BOOL)acceptsPreviewPanelControl:(id)panel;
+- (BOOL)acceptsPreviewPanelControl:(QLPreviewPanel *)panel;
 {
 	return YES;
 }
 
-// QuickLook delegates for SDK 10.6
-// - (BOOL)previewPanel:(QLPreviewPanel *)panel handleEvent:(NSEvent *)event
-// {
-// }
+#pragma mark - QLPreviewPanelDataSource methods
 
 /**
  * QuickLook delegate for SDK 10.6.
  *
  * @return It always returns 1.
  */
-- (NSInteger)numberOfPreviewItemsInPreviewPanel:(id)panel
+- (NSInteger)numberOfPreviewItemsInPreviewPanel:(QLPreviewPanel *)panel
 {
 	return 1;
 }
@@ -989,7 +938,7 @@
  *
  * @return It returns as NSURL the temporarily created file.
  */
-- (id)previewPanel:(id)panel previewItemAtIndex:(NSInteger)anIndex
+- (id)previewPanel:(QLPreviewPanel *)panel previewItemAtIndex:(NSInteger)anIndex
 {
 	if(tmpFileName)
 		return [NSURL fileURLWithPath:tmpFileName];
@@ -997,33 +946,19 @@
 	return nil;
 }
 
-/**
- * QuickLook delegate for SDK 10.5.
- *
- * @return It returns the frame of the application's middle. If an empty frame is returned then the panel will fade in/out instead.
- */
-- (NSRect)previewPanel:(NSPanel*)panel frameForURL:(NSURL*)URL
-{
+#pragma mark - QLPreviewPanelDelegate methods
 
-	// Close modal session defined in invokeQuickLookOfType:
-	// if user closes the QuickLook view
-	quickLookCloseMarker = 1;
-
-	// Return the App's middle point
-	NSRect mwf = [[NSApp mainWindow] frame];
-	return NSMakeRect(
-					  mwf.origin.x+mwf.size.width/2,
-					  mwf.origin.y+mwf.size.height/2,
-					  5, 5);
-
-}
+// QuickLook delegates for SDK 10.6
+// - (BOOL)previewPanel:(QLPreviewPanel *)panel handleEvent:(NSEvent *)event
+// {
+// }
 
 /**
  * QuickLook delegate for SDK 10.6.
  *
  * @return It returns the frame of the application's middle. If an empty frame is returned then the panel will fade in/out instead.
  */
-- (NSRect)previewPanel:(id)panel sourceFrameOnScreenForPreviewItem:(id)item
+- (NSRect)previewPanel:(QLPreviewPanel *)panel sourceFrameOnScreenForPreviewItem:(id)item
 {
 	// Return the App's middle point
 	NSRect mwf = [[NSApp mainWindow] frame];
@@ -1039,6 +974,8 @@
 // 	return [NSImage imageNamed:@"database"];
 // }
 
+#pragma mark -
+
 /**
  * Called by (SPImageView) if an image was pasted into the editSheet
  */
@@ -1051,8 +988,6 @@
 
 	image = [[[NSImage alloc] initWithPasteboard:[NSPasteboard generalPasteboard]] autorelease];
 	if (image) {
-
-		if (nil != sheetEditData) [sheetEditData release];
 
 		[editImage setImage:image];
 
@@ -1154,7 +1089,7 @@
 	}
 	[bitSheetIntegerTextField setStringValue:[[NSNumber numberWithUnsignedLongLong:intValue] stringValue]];
 	[bitSheetHexTextField setStringValue:[NSString stringWithFormat:@"%lX", (unsigned long)intValue]];
-	[bitSheetOctalTextField setStringValue:[NSString stringWithFormat:@"%llO", (unsigned long long)intValue]];
+	[bitSheetOctalTextField setStringValue:[NSString stringWithFormat:@"%llo", (unsigned long long)intValue]];
 	// free old data
 	if ( sheetEditData != nil ) {
 		[sheetEditData release];
@@ -1231,7 +1166,6 @@
  */
 - (IBAction)setToNull:(id)sender
 {
-
 	unsigned long i;
 	unsigned long maxBit = (unsigned long)((maxTextLength > 64) ? 64 : maxTextLength);
 
@@ -1250,7 +1184,6 @@
 	}
 
 	[self updateBitSheet];
-
 }
 
 /**
@@ -1258,9 +1191,7 @@
  */
 - (IBAction)bitSheetBitButtonWasClicked:(id)sender
 {
-
 	[self updateBitSheet];
-
 }
 
 #pragma mark -
@@ -1284,7 +1215,7 @@
 			[[self valueForKeyPath:[NSString stringWithFormat:@"bitSheetBitButton%lu", i]] setState:NSOffState];
 
 		[bitSheetHexTextField setStringValue:[NSString stringWithFormat:@"%lX", (unsigned long)intValue]];
-		[bitSheetOctalTextField setStringValue:[NSString stringWithFormat:@"%llO", (long long)intValue]];
+		[bitSheetOctalTextField setStringValue:[NSString stringWithFormat:@"%llo", (long long)intValue]];
 
 		i = 0;
 		while( intValue && i < maxBit )
@@ -1308,7 +1239,7 @@
 			[[self valueForKeyPath:[NSString stringWithFormat:@"bitSheetBitButton%ld", (long)i]] setState:NSOffState];
 
 		[bitSheetHexTextField setStringValue:[NSString stringWithFormat:@"%qX", intValue]];
-		[bitSheetOctalTextField setStringValue:[NSString stringWithFormat:@"%llO", intValue]];
+		[bitSheetOctalTextField setStringValue:[NSString stringWithFormat:@"%llo", intValue]];
 
 		i = 0;
 		while( intValue && i < maxBit )
@@ -1317,9 +1248,9 @@
 			intValue >>= 1;
 			i++;
 		}
+		
 		[self updateBitSheet];
 	}
-
 }
 
 /**
@@ -1446,7 +1377,6 @@
 		// set edit data to text
 		sheetEditData = [[NSString stringWithString:[editTextView string]] retain];
 	}
-
 }
 
 /**

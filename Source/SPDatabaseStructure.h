@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDatabaseStructure.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPMySQLConnection;
 @class SPDatabaseDocument;
@@ -53,12 +51,13 @@
 // Setup and teardown
 - (id)initWithDelegate:(SPDatabaseDocument *)theDelegate;
 - (void)setConnectionToClone:(SPMySQLConnection *)aConnection;
-- (void)destroy:(NSNotification *)notification;
 
 // Information
 - (SPMySQLConnection *)connection;
+- (SPDatabaseDocument *)delegate;
 
 // Structure retrieval from the server
+- (void)queryDbStructureInBackgroundWithUserInfo:(NSDictionary *)userInfo;
 - (void)queryDbStructureWithUserInfo:(NSDictionary*)userInfo;
 - (BOOL)isQueryingDatabaseStructure;
 

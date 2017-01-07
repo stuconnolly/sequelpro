@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPConnectionHandler.h
 //  sequel-pro
 //
@@ -28,9 +26,10 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPConnectionControllerDelegateProtocol.h"
+#import "SPFavoritesExportProtocol.h"
 
 #import <SPMySQL/SPMySQL.h>
 
@@ -49,7 +48,7 @@
 #endif
 ;
 
-@interface SPConnectionController : NSViewController <SPMySQLConnectionDelegate>
+@interface SPConnectionController : NSViewController <SPMySQLConnectionDelegate, NSOpenSavePanelDelegate, SPFavoritesExportProtocol, NSSplitViewDelegate>
 {
 	id <SPConnectionControllerDelegateProtocol, NSObject> delegate;
 	
@@ -81,6 +80,7 @@
 	NSString *socket;
 	NSString *port;
 	NSInteger colorIndex;
+	BOOL useCompression;
 	
 	// SSL details
 	NSInteger useSSL;
@@ -122,6 +122,7 @@
 	IBOutlet NSView *socketConnectionFormContainer;
 	IBOutlet NSView *socketConnectionSSLDetailsContainer;
 	IBOutlet NSView *sshConnectionFormContainer;
+	IBOutlet NSView *sshConnectionSSLDetailsContainer;
 	IBOutlet NSView *sshKeyLocationHelp;
 	IBOutlet NSView *sslKeyFileLocationHelp;
 	IBOutlet NSView *sslCertificateLocationHelp;
@@ -149,6 +150,9 @@
 	IBOutlet NSButton *socketSSLKeyFileButton;
 	IBOutlet NSButton *socketSSLCertificateButton;
 	IBOutlet NSButton *socketSSLCACertButton;
+	IBOutlet NSButton *sslOverSSHKeyFileButton;
+	IBOutlet NSButton *sslOverSSHCertificateButton;
+	IBOutlet NSButton *sslOverSSHCACertButton;
 
 	IBOutlet NSButton *connectButton;
 	IBOutlet NSButton *testConnectButton;
@@ -207,6 +211,7 @@
 @property (readwrite, retain) NSString *connectionKeychainItemAccount;
 @property (readwrite, retain) NSString *connectionSSHKeychainItemName;
 @property (readwrite, retain) NSString *connectionSSHKeychainItemAccount;
+@property (readwrite, assign) BOOL useCompression;
 
 #ifdef SP_CODA
 @property (readwrite, assign) SPDatabaseDocument *dbDocument;
@@ -224,7 +229,7 @@
 
 #ifndef SP_CODA
 // Interface interaction
-- (IBAction)nodeDoubleClicked:(id)sender;
+- (void)nodeDoubleClicked:(id)sender;
 - (IBAction)chooseKeyLocation:(id)sender;
 - (IBAction)showHelp:(id)sender;
 - (IBAction)updateSSLInterface:(id)sender;
@@ -251,6 +256,7 @@
 - (IBAction)duplicateFavorite:(id)sender;
 - (IBAction)renameNode:(id)sender;
 - (IBAction)makeSelectedFavoriteDefault:(id)sender;
+- (void)selectQuickConnectItem;
 
 // Import/export favorites
 - (IBAction)importFavorites:(id)sender;

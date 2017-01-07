@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPWindowController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPWindowController.h"
 #import "SPWindowControllerDelegate.h"
@@ -36,6 +34,7 @@
 #import "SPDatabaseViewController.h"
 #import "SPAppController.h"
 #import "PSMTabDragAssistant.h"
+#import "SPConnectionController.h"
 
 #import <PSMTabBar/PSMTabBarControl.h>
 #import <PSMTabBar/PSMTabStyle.h>
@@ -53,9 +52,8 @@ enum {
 
 - (void)_setUpTabBar;
 - (void)_updateProgressIndicatorForItem:(NSTabViewItem *)theItem;
-- (void)_createTitleBarLineHidingView;
-- (void)_updateLineHidingViewState;
-
+- (void)_switchOutSelectedTableDocument:(SPDatabaseDocument *)newDoc;
+- (void)_selectedTableDocumentDeallocd:(NSNotification *)notification;
 @end
 
 @implementation SPWindowController
@@ -65,15 +63,9 @@ enum {
 
 - (void)awakeFromNib
 {
-	systemVersion = 0;
-	selectedTableDocument = nil;
+	[self _switchOutSelectedTableDocument:nil];
 	
-	Gestalt(gestaltSystemVersion, &systemVersion);
-
 	[[self window] setCollectionBehavior:[[self window] collectionBehavior] | NSWindowCollectionBehaviorFullScreenPrimary];
-
-	// Add a line to the window to hide the line below the title bar when the toolbar is collapsed
-	[self _createTitleBarLineHidingView];
 
 	// Disable automatic cascading - this occurs before the size is set, so let the app
 	// controller apply cascading after frame autosaving.
@@ -85,13 +77,18 @@ enum {
 	[self _setUpTabBar];
 
 	// Retrieve references to the 'Close Window' and 'Close Tab' menus.  These are updated as window focus changes.
-	closeWindowMenuItem = [[[[NSApp mainMenu] itemWithTag:SPMainMenuFile] submenu] itemWithTag:1003];
-	closeTabMenuItem = [[[[NSApp mainMenu] itemWithTag:SPMainMenuFile] submenu] itemWithTag:1103];
+	closeWindowMenuItem = [[[[NSApp mainMenu] itemWithTag:SPMainMenuFile] submenu] itemWithTag:SPMainMenuFileClose];
+	closeTabMenuItem = [[[[NSApp mainMenu] itemWithTag:SPMainMenuFile] submenu] itemWithTag:SPMainMenuFileCloseTab];
 
 	// Register for drag start and stop notifications - used to show/hide tab bars
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(tabDragStarted:) name:PSMTabDragDidBeginNotification object:nil];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(tabDragStopped:) name:PSMTabDragDidEndNotification object:nil];
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_updateLineHidingViewState) name:SPWindowToolbarDidToggleNotification object:nil];
+
+	// Because we are a document-based app we automatically adopt window restoration on 10.7+.
+	// However that causes a race condition with our own window setup code.
+	// Remove this when we actually support restoration.
+	if([[self window] respondsToSelector:@selector(setRestorable:)])
+		[[self window] setRestorable:NO];
 }
 
 #pragma mark -
@@ -102,6 +99,11 @@ enum {
  */
 - (IBAction)addNewConnection:(id)sender
 {
+	[self addNewConnection];
+}
+
+- (SPDatabaseDocument *)addNewConnection
+{
 	// Create a new database connection view
 	SPDatabaseDocument *newTableDocument = [[SPDatabaseDocument alloc] init];
 	
@@ -110,7 +112,6 @@ enum {
 
 	// Set up a new tab with the connection view as the identifier, add the view, and add it to the tab view
     NSTabViewItem *newItem = [[[NSTabViewItem alloc] initWithIdentifier:newTableDocument] autorelease];
-	[newItem setColor:nil]; //cocoa defaults to [NSColor controlColor] but we want the tabstyle to choose a default color
 	
 	[newItem setView:[newTableDocument databaseView]];
     [tabView addTabViewItem:newItem];
@@ -123,8 +124,8 @@ enum {
 
 	// Bind the tab bar's progress display to the document
 	[self _updateProgressIndicatorForItem:newItem];
-
-	[newTableDocument release];
+	
+	return [newTableDocument autorelease];
 }
 
 /**
@@ -140,7 +141,7 @@ enum {
  */
 - (void)updateSelectedTableDocument
 {
-	selectedTableDocument = [[tabView selectedTabViewItem] identifier];
+	[self _switchOutSelectedTableDocument:[[tabView selectedTabViewItem] identifier]];
 	
 	[selectedTableDocument didBecomeActiveTabInWindow];
 }
@@ -174,6 +175,7 @@ enum {
 	// If there are multiple tabs, close the front tab.
 	if ([tabView numberOfTabViewItems] > 1) {
 		[tabView removeTabViewItem:[tabView selectedTabViewItem]];
+		
 	} 
 	else {
 		[[self window] performClose:self];
@@ -261,7 +263,7 @@ enum {
 	//rebind the selected cell to the new control
 	[control bindPropertiesForCell:selectedCell andTabViewItem:selectedTabViewItem];
 	
-	[selectedCell setControlView:control];
+	[selectedCell setCustomControlView:control];
 	
 	[[tabBar tabView] removeTabViewItem:[selectedCell representedObject]];
 
@@ -352,6 +354,23 @@ enum {
 }
 
 #pragma mark -
+#pragma mark Tab Bar
+- (void)updateTabBar
+{
+	BOOL collapse = NO;
+ 
+	if (selectedTableDocument.getConnection) {
+		if (selectedTableDocument.connectionController.colorIndex != -1) {
+			collapse = YES;
+		}
+	}
+	
+	tabBar.heightCollapsed = collapse ? 8 : 1;
+	
+	[tabBar update];
+}
+
+#pragma mark -
 #pragma mark First responder forwarding to active tab
 
 /**
@@ -387,7 +406,7 @@ enum {
  */
 - (BOOL)respondsToSelector:(SEL)theSelector
 {
-	return ([super respondsToSelector:theSelector] || (selectedTableDocument && [selectedTableDocument respondsToSelector:theSelector]));
+	return ([super respondsToSelector:theSelector] || [selectedTableDocument respondsToSelector:theSelector]);
 }
 
 /**
@@ -446,8 +465,8 @@ enum {
 	[tabBar setShowAddTabButton:YES];
 	[tabBar setSizeCellsToFit:NO];
 	[tabBar setCellMinWidth:100];
-	[tabBar setCellMaxWidth:250];
-	[tabBar setCellOptimumWidth:250];
+	[tabBar setCellMaxWidth:25000];
+	[tabBar setCellOptimumWidth:25000];
 	[tabBar setSelectsTabsOnMouseDown:YES];
 	[tabBar setCreatesTabOnDoubleClick:YES];
 	[tabBar setTearOffStyle:PSMTabBarTearOffAlphaWindow];
@@ -485,53 +504,37 @@ enum {
 	[theDocument addObserver:self forKeyPath:@"isProcessing" options:0 context:nil];
 }
 
-/**
- * Create a view which is used to hide the line underneath the window title bar when the
- * toolbar is hidden, improving appearance when tabs are visible (or collapsed!)
- */
-- (void)_createTitleBarLineHidingView
+
+- (void)_switchOutSelectedTableDocument:(SPDatabaseDocument *)newDoc
 {
-	float titleBarHeight = 21.f;
-	NSSize windowSize = [self window].frame.size;
-
-	titleBarLineHidingView = [[[NSClipView alloc] init] autorelease];
-
-	// Set the original size and the autosizing mask to preserve it
-	[titleBarLineHidingView setFrame:NSMakeRect(0, windowSize.height - titleBarHeight - 1, windowSize.width, 1)];
-	[titleBarLineHidingView setAutoresizingMask:(NSViewWidthSizable | NSViewMinYMargin)];
-
-	[self _updateLineHidingViewState];
-
-	// Add the view to the window
-	[[[[self window] contentView] superview] addSubview:titleBarLineHidingView];
+	NSAssert([NSThread isMainThread], @"Switching the selectedTableDocument via a background thread is not supported!");
+	
+	// shortcut if there is nothing to do
+	if(selectedTableDocument == newDoc) return;
+	
+	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+	if(selectedTableDocument) {
+		[nc removeObserver:self name:SPDocumentWillCloseNotification object:selectedTableDocument];
+		selectedTableDocument = nil;
+	}
+	if(newDoc) {
+		[nc addObserver:self selector:@selector(_selectedTableDocumentDeallocd:) name:SPDocumentWillCloseNotification object:newDoc];
+		selectedTableDocument = newDoc;
+	}
+	
+	[self updateTabBar];
 }
 
-/**
- * Update the visibility and colour of the title bar line hiding view
- */
-- (void)_updateLineHidingViewState
+- (void)_selectedTableDocumentDeallocd:(NSNotification *)notification
 {
-	// Set the background colour to match the titlebar window state
-	if ((([[self window] isMainWindow] || [[[self window] attachedSheet] isMainWindow]) && [NSApp isActive])) {
-		[titleBarLineHidingView setBackgroundColor:[NSColor colorWithCalibratedWhite:(systemVersion >= 0x1070) ? 0.66f : 0.63f alpha:1.0]];	
-	} 
-	else {
-		[titleBarLineHidingView setBackgroundColor:[NSColor colorWithCalibratedWhite:(systemVersion >= 0x1070) ? 0.87f : 0.84f alpha:1.0]];
-	}
-
-	// If the window is fullscreen or the toolbar is showing, hide the view; otherwise show it
-	if (([[self window] styleMask] & NSFullScreenWindowMask) || [[[self window] toolbar] isVisible] || ![[self window] toolbar]) {
-		[titleBarLineHidingView setHidden:YES];
-	} 
-	else {
-		[titleBarLineHidingView setHidden:NO];
-	}
+	[self _switchOutSelectedTableDocument:nil];
 }
 
 #pragma mark -
 
 - (void)dealloc
 {
+	[self _switchOutSelectedTableDocument:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	
 	[NSObject cancelPreviousPerformRequestsWithTarget:self];
@@ -539,7 +542,7 @@ enum {
 	// Tear down the animations on the tab bar to stop redraws
 	[tabBar destroyAnimations];
 	
-	[managedDatabaseConnections release];
+	SPClear(managedDatabaseConnections);
 	
 	[super dealloc];
 }

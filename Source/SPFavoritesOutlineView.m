@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoritesOutlineView.m
 //  sequel-pro
 //
@@ -28,21 +26,27 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPFavoritesOutlineView.h"
 #import "SPConnectionControllerDelegate.h"
+
+@interface SPFavoritesOutlineView ()
+
+@property (nonatomic,readwrite,assign) id itemForDoubleAction; //make setter private
+
+@end
 
 static NSUInteger SPFavoritesOutlineViewUnindent = 6;
 
 @implementation SPFavoritesOutlineView
 
 @synthesize justGainedFocus;
+@synthesize itemForDoubleAction = _itemForDoubleAction;
 
 - (void)awakeFromNib
 {
-	systemVersion = 0;
-	Gestalt(gestaltSystemVersion, &systemVersion);
+	isOSVersionAtLeast10_7_0 = [SPOSInfo isOSVersionAtLeastMajor:10 minor:7 patch:0];
 }
 
 - (BOOL)acceptsFirstResponder
@@ -86,12 +90,13 @@ static NSUInteger SPFavoritesOutlineViewUnindent = 6;
 	// Enter or Return initiates a connection to the selected favorite, which is the same as double-clicking
 	// one, so call the same selector.
 	if (([self numberOfSelectedRows] == 1) && (([event keyCode] == 36) || ([event keyCode] == 76))) {
-		[[self delegate] performSelector:[self doubleAction]];
-		
+		[self setItemForDoubleAction:[self itemAtRow:[self selectedRow]]];
+		[NSApp sendAction:[self doubleAction] to:[self delegate] from:self];
+		[self setItemForDoubleAction:nil];
 		return;
-
+	}
 	// If the Tab key is used, change focus rather than entering edit mode.
-	} else if ([[event characters] length] && [[event characters] characterAtIndex:0] == NSTabCharacter) {
+	if ([[event characters] length] && [[event characters] characterAtIndex:0] == NSTabCharacter) {
 		if (([event modifierFlags] & NSShiftKeyMask) != NSShiftKeyMask) {
 			[[self window] selectKeyViewFollowingView:self];
 		} 
@@ -103,6 +108,22 @@ static NSUInteger SPFavoritesOutlineViewUnindent = 6;
 	}
 	
 	[super keyDown:event];
+}
+
+- (void)mouseDown:(NSEvent *)theEvent
+{
+	if([theEvent type] == NSLeftMouseDown && [theEvent clickCount] == 2) {
+		// The tricky thing is that [self clickedRow] is set from [NSTableView mouseDown], so right now it's not populated.
+		// We can't use [self selectedRow] either, as clicking on empty space does not update the selection.
+		NSPoint clickAt = [theEvent locationInWindow];
+		NSPoint relClickAt = [self convertPoint:clickAt fromView:nil];
+		NSInteger rowNum = [self rowAtPoint:relClickAt];
+		if(rowNum > -1) [self setItemForDoubleAction:[self itemAtRow:rowNum]];
+	}
+	
+	[super mouseDown:theEvent];
+	
+	[self setItemForDoubleAction:nil]; // not much overhead, therefore unconditional
 }
 
 /**
@@ -131,7 +152,7 @@ static NSUInteger SPFavoritesOutlineViewUnindent = 6;
 	NSRect superFrame = [super frameOfCellAtColumn:columnIndex row:rowIndex];
 
 	// On system versions lower than Lion, don't alter padding
-	if (systemVersion < 0x1070) {
+	if (!isOSVersionAtLeast10_7_0) {
 		return superFrame;
 	}
 
@@ -161,7 +182,7 @@ static NSUInteger SPFavoritesOutlineViewUnindent = 6;
 	}
 
 	// On versions of Lion or above, amend the padding appropriately
-	if (systemVersion >= 0x1070) {
+	if (isOSVersionAtLeast10_7_0) {
 		return NSMakeRect(superFrame.origin.x + SPFavoritesOutlineViewUnindent, superFrame.origin.y, superFrame.size.width, superFrame.size.height);
 	}
 

@@ -1,8 +1,6 @@
 #! /bin/ksh 
 
 #
-#  $Id$
-#
 #  localize.sh
 #  sequel-pro
 #
@@ -30,7 +28,7 @@
 #  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 #  OTHER DEALINGS IN THE SOFTWARE.
 #
-#  More info at <http://code.google.com/p/sequel-pro/>
+#  More info at <https://github.com/sequelpro/sequelpro>
 
 #  Localizes all of the application's NIB files. This script should only be run by Xcode.
 

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoritesImporter.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPFavoritesImporter.h"
 #import "SPThreadAdditions.h"
@@ -129,9 +127,9 @@ static NSString *SPOldPreferenceFileFavoritesKey = @"favorites";
  */
 - (void)_informDelegateOfErrorCode:(NSUInteger)code description:(NSString *)description
 {
-	NSError *error = [NSError errorWithDomain:NSCocoaErrorDomain 
-										 code:code 
-									 userInfo:[NSDictionary dictionaryWithObject:description forKey:NSLocalizedDescriptionKey]];
+	NSError *error = [NSError errorWithDomain:NSCocoaErrorDomain
+										 code:code
+									 userInfo:@{NSLocalizedDescriptionKey : description}];
 	
 	[self _informDelegateOfImportCompletion:error];
 }

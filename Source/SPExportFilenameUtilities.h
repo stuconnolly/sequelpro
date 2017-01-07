@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPExportFilenameUtilities.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPExportController.h"
 
@@ -43,10 +41,11 @@
 
 - (void)updateDisplayedExportFilename;
 - (void)updateAvailableExportFilenameTokens;
-- (id)tokenObjectForString:(NSString *)stringToTokenize;
-- (void)tokenizeCustomFilenameTokenField;
+- (NSArray *)currentAllowedExportFilenameTokens;
 - (NSString *)generateDefaultExportFilename;
 - (NSString *)currentDefaultExportFileExtension;
 - (NSString *)expandCustomFilenameFormatUsingTableName:(NSString *)table;
+- (NSString *)customFilenamePathExtension;
+- (BOOL)isTableTokenAllowed;
 
 @end

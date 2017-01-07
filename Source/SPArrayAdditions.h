@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPArrayAdditions.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 static inline id NSArrayObjectAtIndex(NSArray *self, NSUInteger i) 
 {
@@ -87,5 +85,15 @@ static inline void NSMutableArrayReplaceObject(NSArray *self, CFIndex idx, id an
 - (NSString *)componentsJoinedAsCSV;
 
 - (NSArray *)subarrayWithIndexes:(NSIndexSet *)indexes;
+
+/**
+ * Variant of objectAtIndex: that avoids the "index out of bounds" exception by
+ * just returning nil instead.
+ *
+ * @warning This method is NOT thread-safe.
+ * @param index  An index
+ * @return The object located at index or nil.
+ */
+- (id)objectOrNilAtIndex:(NSUInteger)index;
 
 @end

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoriteColorSupport.h
 //  sequel-pro
 //
@@ -28,11 +26,12 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import <Foundation/Foundation.h>
 
-@interface SPFavoriteColorSupport : NSObject {
+@interface SPFavoriteColorSupport : NSObject
+{
 	NSUserDefaults *prefs;
 }
 
@@ -43,19 +42,23 @@
 
 /** 
  * Get the default list of colors supplied by Sequel Pro.
+ * 
  * @return An array with NSColor * items.
  */
 + (NSArray *)defaultColorList;
 
 /** 
  * Get the current color for a specific index.
+ * 
  * @return The color or nil if colorIndex was < 0 or the index was not defined.
  */
 - (NSColor *)colorForIndex:(NSInteger)colorIndex;
 
 /** 
  * The current list of colors from user prefs.
+ * 
  * @return An array with NSColor * items.
  */
 - (NSArray *)userColorList;
+
 @end

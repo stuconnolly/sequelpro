@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPExportFile.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPExportFile.h"
 #import "SPFileHandle.h"
@@ -193,7 +191,7 @@
 		return;
 	}
 
-	[[self exportFileHandle] setShouldWriteWithCompressionFormat:fileCompressionFormat];
+	[[self exportFileHandle] setCompressionFormat:fileCompressionFormat];
 }
 
 #pragma mark -
@@ -228,7 +226,7 @@
 
 - (void)dealloc
 {
-	if (exportFileHandle) [exportFileHandle release], exportFileHandle = nil;
+	if (exportFileHandle) SPClear(exportFileHandle);
 	
 	[super dealloc];
 }

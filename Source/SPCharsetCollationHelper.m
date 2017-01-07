@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPCharsetCollationHelper.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPCharsetCollationHelper.h"
 
@@ -55,6 +53,7 @@
 @synthesize selectedCharset;
 @synthesize selectedCollation;
 @synthesize defaultCharsetFormatString;
+@synthesize defaultCollationFormatString;
 @synthesize _oldCharset;
 
 - (id)initWithCharsetButton:(NSPopUpButton *)aCharsetButton CollationButton:(NSPopUpButton *)aCollationButton
@@ -65,7 +64,8 @@
 	self = [super init];
 	if (self != nil) {
 		[self setPromoteUTF8:YES];
-		[self setDefaultCharsetFormatString:NSLocalizedString(@"Default (%@)",@"Charset Dropdown : Default item ($1 = name)")];
+		[self setDefaultCharsetFormatString:NSLocalizedString(@"Default (%@)",@"Charset Dropdown : Default item ($1 = charset name)")];
+		[self setDefaultCollationFormatString:NSLocalizedString(@"Default (%@)",@"Collation Dropdown : Default collation for given charset ($1 = collation name)")];
 		charsetButton = aCharsetButton;
 		collationButton = aCollationButton;
 		//connect the charset button with ourselves
@@ -135,6 +135,8 @@
 	
 	if (([encodings count] > 0) && [serverSupport supportsPost41CharacterSetHandling]) {
 		
+		NSUInteger utf8encounters = 0;
+		
 		for (NSDictionary *encoding in encodings) 
 		{
 			NSString *charsetId     = [encoding objectForKey:@"CHARACTER_SET_NAME"];
@@ -148,18 +150,19 @@
 			if(selectedCharset && [charsetId isEqualToString:selectedCharset])
 				selectedRef = menuItem;
 			
-			// If the UTF8 entry has been encountered, promote it to the top of the list
-			if (promoteUTF8 && [charsetId isEqualToString:@"utf8"]) {
-				[[charsetButton menu] insertItem:[menuItem autorelease] atIndex:0];
-				//only add a separator if there actually are more items other than utf8 (might not be true for mysql forks)
-				if([encodings count] > 1)
-					[[charsetButton menu] insertItem:[NSMenuItem separatorItem] atIndex:1];
+			// If an UTF8 entry has been encountered, promote it to the top of the list
+			if (promoteUTF8 && [charsetId hasPrefix:@"utf8"]) {
+				[[charsetButton menu] insertItem:[menuItem autorelease] atIndex:(utf8encounters++)];
 			}
 			else {
 				[[charsetButton menu] addItem:[menuItem autorelease]];
 			}
 				
 		}
+		
+		//only add a separator if there actually are more items other than utf8 (might not be true for mysql forks)
+		if(utf8encounters && [encodings count] > utf8encounters)
+			[[charsetButton menu] insertItem:[NSMenuItem separatorItem] atIndex:utf8encounters];
 		
 		[charsetButton setEnabled:YES];
 	}
@@ -209,6 +212,7 @@
 	
 	//get the charset id
 	NSString *charsetId = [[charsetButton selectedItem] representedObject];
+	BOOL charsetIsInherited = ([self selectedCharset] == nil);
 
 	//now let's get the list of collations for the selected charset id
 	NSArray *applicableCollations = [databaseData getDatabaseCollationsForEncoding:charsetId];
@@ -219,16 +223,18 @@
 	
 	//add a separator
 	[[collationButton menu] addItem:[NSMenuItem separatorItem]];
-	
-	//if this is the defaultCharset and we have a defaultCollation use that instead
-	BOOL useGivenDefaultCollation = (defaultCharset && defaultCollation && [charsetId isEqualToString:defaultCharset]);
-	
-	if(useGivenDefaultCollation) {
-		NSString *userDefaultCollateTitle = [NSString stringWithFormat:fmtStrDefaultId,defaultCollation];
+
+	// there are two kinds of default collations:
+	// - the inherited default (which is only used if NEITHER charset NOR collation is explicitly set), and
+	// - the charset default (which is used if charset is explicitly set, but collation is not)
+	//   - that even applies if the selectedCharset is the same as the defaultCharset!
+	if(charsetIsInherited) {
+		// implies [charsetId isEqualToString:defaultCharset]
+		NSString *userInheritedCollateTitle = [NSString stringWithFormat:defaultCollationFormatString,defaultCollation];
 		//remove the dummy default item.
 		[collationButton removeItemAtIndex:0];
 		//add it to the top of the list
-		[collationButton insertItemWithTitle:userDefaultCollateTitle atIndex:0];
+		[collationButton insertItemWithTitle:userInheritedCollateTitle atIndex:0];
 	}
 	
 	//add the real items
@@ -237,8 +243,8 @@
 		NSString *collationName = [collation objectForKey:@"COLLATION_NAME"];
 		[collationButton addItemWithTitle:collationName];
 		
-		//is this the default collation for this charset (and we didn't override it)?
-		if(!useGivenDefaultCollation && [[collation objectForKey:@"IS_DEFAULT"] isEqualToString:@"Yes"]) {
+		//is this the default collation for this charset and charset was given explicitly (ie. breaking inheritance)?
+		if(!charsetIsInherited && [[collation objectForKey:@"IS_DEFAULT"] isEqualToString:@"Yes"]) {
 			NSString *defaultCollateTitle = [NSString stringWithFormat:fmtStrDefaultId,collationName];
 			//remove the dummy default item.
 			[collationButton removeItemAtIndex:0];
@@ -246,7 +252,7 @@
 			[collationButton insertItemWithTitle:defaultCollateTitle atIndex:0];
 		}
 	}
-	//reset selection to first item (it may moved when adding the default item)
+	//reset selection to first item (it may have moved when adding the default item)
 	[collationButton selectItemAtIndex:0];
 	
 	//honor selectedCollation

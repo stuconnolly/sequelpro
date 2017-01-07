@@ -1,8 +1,6 @@
 #!/bin/sh
 
 #
-#  $Id$
-#
 #  package-application.sh
 #  sequel-pro
 #
@@ -30,9 +28,10 @@
 #  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 #  OTHER DEALINGS IN THE SOFTWARE.
 #
-#  More info at <http://code.google.com/p/sequel-pro/>
+#  More info at <https://github.com/sequelpro/sequelpro>
 
-#  A very basic script to build and sign a disk image for Sequel Pro; based on better work by Stuart Connolly.
+#  A very basic script to build and sign a disk image for Sequel Pro;
+#  based on better work by Stuart Connolly.
 #
 #  Ensure the path to the application has been supplied - should have occurred when the
 #  script was run by selecting 'Distribution' target and building.
@@ -68,6 +67,12 @@ mkdir "${DISTTEMP}"
 # Copy in the required distribution files
 cp -R "${BUILT_PRODUCTS_DIR}/${TARGET_NAME}${WRAPPER_SUFFIX}" "${DMG_BUILD_PATH}/disttemp"
 
+# Add a link to the Applications dir
+echo "Add link to /Applications"
+pushd "${DMG_BUILD_PATH}/disttemp"
+ln -s /Applications
+popd
+
 # Create a disk image
 hdiutil create -srcfolder "${DISTTEMP}" -volname "$DMG_VOLUME_NAME" -fs HFS+ -fsargs '-c c=64,a=16,e=16' -format UDRW "${DMG_BUILD_PATH}/${DMG_NAME}.temp.dmg" > /dev/null
 
@@ -90,5 +95,8 @@ then
 	SIGNATURE=`openssl dgst -sha1 -binary < "${DMG_BUILD_PATH}/${DMG_NAME}.dmg" | openssl dgst -dss1 -sign "$PRIVATE_KEY_LOCATION" | openssl enc -base64`
 	echo "$SIGNATURE" > "${DMG_BUILD_PATH}/${DMG_NAME}.dmg.signature"
 fi
+
+echo "Disk image created at ${DMG_BUILD_PATH}/${DMG_NAME}.dmg and signature placed next to it"
+open -R "${DMG_BUILD_PATH}"
 
 exit 0

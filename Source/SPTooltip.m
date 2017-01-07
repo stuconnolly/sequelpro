@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTooltip.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 //	Usage:
 //	#import "SPTooltip.h"
@@ -59,6 +57,7 @@
 //	See more possible syntaxa in SPTooltip to init a tooltip
 
 #import "SPTooltip.h"
+#import "SPOSInfo.h"
 
 #include <tgmath.h>
 
@@ -98,7 +97,7 @@ static CGFloat slow_in_out (CGFloat t)
 
 + (void)showWithObject:(id)content atLocation:(NSPoint)point
 {
-	[self showWithObject:content atLocation:point ofType:@"text" displayOptions:[NSDictionary dictionary]];
+	[self showWithObject:content atLocation:point ofType:@"text" displayOptions:@{}];
 }
 
 + (void)showWithObject:(id)content atLocation:(NSPoint)point ofType:(NSString *)type
@@ -201,7 +200,6 @@ static CGFloat slow_in_out (CGFloat t)
 	[self setReleasedWhenClosed:YES];
 	[self setAlphaValue:0.97f];
 	[self setOpaque:NO];
-	[self setBackgroundColor:[NSColor colorWithDeviceRed:1.0f green:0.96f blue:0.76f alpha:1.0f]];
 	[self setBackgroundColor:[NSColor clearColor]];
 	[self setHasShadow:YES];
 	[self setLevel:NSStatusWindowLevel];
@@ -243,9 +241,9 @@ static CGFloat slow_in_out (CGFloat t)
 - (void)dealloc
 {
 	[NSObject cancelPreviousPerformRequestsWithTarget:self];
-	[didOpenAtDate release];
-	[webView release];
-	[webPreferences release];
+	SPClear(didOpenAtDate);
+	SPClear(webView);
+	SPClear(webPreferences);
 	[super dealloc];
 }
 
@@ -300,7 +298,8 @@ static CGFloat slow_in_out (CGFloat t)
 				@"<body>%@</body>"
 				@"</html>";
 
-	NSString *bgColor = ([displayOptions objectForKey:@"backgroundcolor"]) ? [displayOptions objectForKey:@"backgroundcolor"] : @"#F9FBC5";
+	NSString *tooltipColor = ([SPOSInfo isOSVersionAtLeastMajor:10 minor:10 patch:0])? @"#F0F0F0" : @"#F9FBC5";
+	NSString *bgColor = ([displayOptions objectForKey:@"backgroundcolor"]) ? [displayOptions objectForKey:@"backgroundcolor"] : tooltipColor;
 	BOOL isTransparent = ([displayOptions objectForKey:@"transparent"]) ? YES : NO;
 
 
@@ -318,13 +317,7 @@ static CGFloat slow_in_out (CGFloat t)
 	NSPoint pos = NSMakePoint([self frame].origin.x, [self frame].origin.y + [self frame].size.height);
 
 	// Find the screen which we are displaying on
-	NSRect screenFrame = [[NSScreen mainScreen] frame];
-	NSScreen* candidate;
-	for(candidate in [NSScreen screens])
-	{
-		if(NSMinX([candidate frame]) < pos.x && NSMinX([candidate frame]) > NSMinX(screenFrame))
-			screenFrame = [candidate frame];
-	}
+	NSRect screenFrame = [NSScreen rectOfScreenAtPoint:pos];
 
 	// is contentView a webView calculate actual rendered size via JavaScript
 	if([[[[self contentView] class] description] isEqualToString:@"WebView"]) {

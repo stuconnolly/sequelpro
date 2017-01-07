@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDatabaseRename.h
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPDatabaseAction.h"
 
@@ -40,10 +38,10 @@
 /**
  * This method renames an existing database.
  *
- * @param NSString sourceDatabaseName the name of the source database
- * @param NSString targetDatabaseName the name of the target database
- * @result BOOL success
+ * @param sourceDatabase information tuple about the source database
+ * @param targetDatabase the name of the target database
+ * @result success
  */
-- (BOOL)renameDatabaseFrom:(NSString *)sourceDatabase to:(NSString *)targetDatabase;
+- (BOOL)renameDatabaseFrom:(SPCreateDatabaseInfo *)sourceDatabase to:(NSString *)targetDatabase;
 
 @end

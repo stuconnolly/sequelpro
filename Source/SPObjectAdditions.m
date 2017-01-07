@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPObjectAdditions.m
 //  sequel-pro
 //
@@ -28,7 +26,9 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
+
+#import <objc/runtime.h>
 
 @implementation NSObject (SPObjectAdditions)
 
@@ -44,4 +44,53 @@
 	return (self == null);
 }
 
+- (instancetype)unboxNull
+{
+	if([self isNSNull]) return nil;
+	
+	return self;
+}
+
+- (BOOL)isInArray:(NSArray *)list
+{
+	return [list containsObject:self];
+}
+
 @end
+
+// method swizzling to try and reproduce #2297
+//#pragma mark -
+//
+//@interface NSAlert (ApplePrivate)
+//
+//- (IBAction)buttonPressed:(id)sender;
+//
+//@end
+//
+//@implementation NSAlert (SPAlertDebug)
+//
+//+ (void)load
+//{
+//	static dispatch_once_t onceToken;
+//	
+//	dispatch_once(&onceToken, ^{
+//		Class alertClass = [self class];
+//		
+//		SEL orig = @selector(buttonPressed:);
+//		SEL exch = @selector(sp_buttonPressed:);
+//		
+//		Method origM = class_getInstanceMethod(alertClass, orig);
+//		Method exchM = class_getInstanceMethod(alertClass, exch);
+//		
+//		method_exchangeImplementations(origM, exchM);
+//	});
+//}
+//
+//- (IBAction)sp_buttonPressed:(id)obj
+//{
+//	NSLog(@"%s of %@ title=\n%@\ntext=\n%@",__func__,self,[self messageText],[self informativeText]);
+//	
+//	[self sp_buttonPressed:obj];
+//}
+//
+//@end

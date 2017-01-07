@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDatabaseViewController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #ifndef SP_CODA /* headers */
 #import "SPAppController.h"
@@ -118,16 +116,17 @@
 #pragma mark -
 #pragma mark Tab view control and delegate methods
 
+//WARNING: Might be called from code in background threads
 - (IBAction)viewStructure:(id)sender
 {
 	// Cancel the selection if currently editing a view and unable to save
 	if (![self couldCommitCurrentViewActions]) {
-		[mainToolbar setSelectedItemIdentifier:*SPViewModeToMainToolbarMap[[prefs integerForKey:SPLastViewMode]]];
+		[[mainToolbar onMainThread] setSelectedItemIdentifier:*SPViewModeToMainToolbarMap[[prefs integerForKey:SPLastViewMode]]];
 		return;
 	}
 
-	[tableTabView selectTabViewItemAtIndex:0];
-	[mainToolbar setSelectedItemIdentifier:SPMainToolbarTableStructure];
+	[[tableTabView onMainThread] selectTabViewItemAtIndex:0];
+	[[mainToolbar onMainThread] setSelectedItemIdentifier:SPMainToolbarTableStructure];
 	[spHistoryControllerInstance updateHistoryEntries];
 	
 	[prefs setInteger:SPStructureViewMode forKey:SPLastViewMode];
@@ -304,7 +303,7 @@
 	[self startTaskWithDescription:[NSString stringWithFormat:NSLocalizedString(@"Loading %@...", @"Loading table task string"), [self table]]];
 	
 	if ([NSThread isMainThread]) {
-		[NSThread detachNewThreadWithName:@"SPDatabaseViewController view load task" 
+		[NSThread detachNewThreadWithName:SPCtxt(@"SPDatabaseViewController view load task",self)
 								   target:self 
 								 selector:@selector(_loadTabTask:) 
 								   object:tabViewItem];
@@ -334,7 +333,7 @@
 	if (!aTable) {
 		
 		// Update the selected table name and type
-		if (selectedTableName) [selectedTableName release], selectedTableName = nil;
+		if (selectedTableName) SPClear(selectedTableName);
 		
 		selectedTableType = SPTableTypeNone;
 
@@ -389,7 +388,7 @@
 	// If on the main thread, fire up a thread to deal with view changes and data loading;
 	// if already on a background thread, make the changes on the existing thread.
 	if ([NSThread isMainThread]) {
-		[NSThread detachNewThreadWithName:@"SPDatabaseViewController table load task" 
+		[NSThread detachNewThreadWithName:SPCtxt(@"SPDatabaseViewController table load task",self)
 								   target:self 
 								 selector:@selector(_loadTableTask) 
 								   object:nil];
@@ -566,11 +565,12 @@
 	// Clear any views which haven't been loaded as they weren't visible.  Note
 	// that this should be done after reloading visible views, instead of clearing all
 	// views, to reduce UI operations and avoid resetting state unnecessarily.
+	// Some views (eg TableRelations) make use of the SPTableChangedNotification and
+	// so don't require manual clearing.
 	if (!structureLoaded) [tableSourceInstance loadTable:nil];
 	if (!contentLoaded) [tableContentInstance loadTable:nil];
 	if (!statusLoaded) [[extendedTableInfoInstance onMainThread] loadTable:nil];
 	if (!triggersLoaded) [[tableTriggersInstance onMainThread] resetInterface];
-	if (!relationsLoaded) [[tableRelationsInstance onMainThread] refreshRelations:self];
 
 	// If the table row counts an inaccurate and require updating, trigger an update - no
 	// action will be performed if not necessary
@@ -590,7 +590,7 @@
 	[self endTask];
 
 #ifndef SP_CODA /* triggered commands */
-	NSArray *triggeredCommands = [[NSApp delegate] bundleCommandsForTrigger:SPBundleTriggerActionTableChanged];
+	NSArray *triggeredCommands = [SPAppDelegate bundleCommandsForTrigger:SPBundleTriggerActionTableChanged];
 	
 	for(NSString* cmdPath in triggeredCommands) 
 	{
@@ -615,16 +615,17 @@
 			if(!correspondingWindowFound) stopTrigger = YES;
 		}
 		if(!stopTrigger) {
+			id firstResponder = [[NSApp keyWindow] firstResponder];
 			if([[data objectAtIndex:1] isEqualToString:SPBundleScopeGeneral]) {
-				[[[NSApp delegate] onMainThread] executeBundleItemForApp:aMenuItem];
+				[[SPAppDelegate onMainThread] executeBundleItemForApp:aMenuItem];
 			}
 			else if([[data objectAtIndex:1] isEqualToString:SPBundleScopeDataTable]) {
-				if([[[[[NSApp mainWindow] firstResponder] class] description] isEqualToString:@"SPCopyTable"])
-					[[[[NSApp mainWindow] firstResponder] onMainThread] executeBundleItemForDataTable:aMenuItem];
+				if([[[firstResponder class] description] isEqualToString:@"SPCopyTable"])
+					[[firstResponder onMainThread] executeBundleItemForDataTable:aMenuItem];
 			}
 			else if([[data objectAtIndex:1] isEqualToString:SPBundleScopeInputField]) {
-				if([[[NSApp mainWindow] firstResponder] isKindOfClass:[NSTextView class]])
-					[[[[NSApp mainWindow] firstResponder] onMainThread] executeBundleItemForInputField:aMenuItem];
+				if([firstResponder isKindOfClass:[NSTextView class]])
+					[[firstResponder onMainThread] executeBundleItemForInputField:aMenuItem];
 			}
 		}
 	}

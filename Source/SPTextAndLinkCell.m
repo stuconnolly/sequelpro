@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPTextAndLinkCell.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPTextAndLinkCell.h"
 
@@ -43,6 +41,7 @@ static inline NSRect SPTextLinkRectFromCellRect(NSRect inRect)
 {
 	return NSMakeRect(inRect.origin.x + inRect.size.width - 15, inRect.origin.y - 1, 12, inRect.size.height);
 }
+
 
 #pragma mark -
 #pragma mark Setup and teardown
@@ -71,7 +70,7 @@ static inline NSRect SPTextLinkRectFromCellRect(NSRect inRect)
  */
 - (void) dealloc
 {
-	if (linkButton) [linkButton release];
+	if (linkButton) SPClear(linkButton);
 
 	[super dealloc];
 }
@@ -178,13 +177,13 @@ static inline NSRect SPTextLinkRectFromCellRect(NSRect inRect)
 /**
  * Allow hit tracking for link functionality
  */
-- (NSUInteger) hitTestForEvent:(NSEvent *)event inRect:(NSRect)cellFrame ofView:(NSView *)controlView
+- (NSCellHitResult) hitTestForEvent:(NSEvent *)event inRect:(NSRect)cellFrame ofView:(NSView *)controlView
 {
 
 	// Fast case for no link - make entire cell editable click area
 	if (!hasLink || !linkActive) return NSCellHitContentArea | NSCellHitEditableTextArea;
 
-	NSPoint p = [[[NSApp  mainWindow] contentView] convertPoint:[event locationInWindow] toView:controlView];
+	NSPoint p = [[[controlView window] contentView] convertPoint:[event locationInWindow] toView:controlView];
 	NSRect linkRect = SPTextLinkRectFromCellRect(cellFrame);
 
 	// Hit the link if it falls within the link rectangle for this cell, set when drawing
@@ -234,7 +233,7 @@ static inline NSRect SPTextLinkRectFromCellRect(NSRect inRect)
 
 				// Capture the clicked row and cell
 				NSTableView *tableView = (NSTableView *)[self controlView];
-				p = [[[NSApp mainWindow] contentView] convertPoint:[theEvent locationInWindow] toView:tableView];
+				p = [[[tableView window] contentView] convertPoint:[theEvent locationInWindow] toView:tableView];
 				lastLinkColumn = [tableView columnAtPoint:p];
 				lastLinkRow = [tableView rowAtPoint:p];
 

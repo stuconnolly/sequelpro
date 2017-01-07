@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPSplitView.m
 //  sequel-pro
 //
@@ -28,10 +26,11 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPSplitView.h"
 #import "SPDateAdditions.h"
+#include <stdlib.h>
 
 @interface SPSplitView (Private_API)
 
@@ -107,11 +106,11 @@
 
 - (void)dealloc
 {
-	[viewMinimumSizes release];
-	[viewMaximumSizes release];
+	SPClear(viewMinimumSizes);
+	SPClear(viewMaximumSizes);
 
-	if (animationTimer) [animationTimer invalidate], [animationTimer release], animationTimer = nil;
-	if (animationRetainCycleBypassObject) [animationRetainCycleBypassObject release], animationRetainCycleBypassObject = nil;
+	if (animationTimer) [animationTimer invalidate], SPClear(animationTimer);
+	if (animationRetainCycleBypassObject) SPClear(animationRetainCycleBypassObject);
 
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	[super dealloc];
@@ -235,8 +234,8 @@
 
 	// Otherwise, start an animation.
 	} else {
-		if (animationTimer) [animationTimer invalidate], [animationTimer release], animationTimer = nil;
-		if (animationRetainCycleBypassObject) [animationRetainCycleBypassObject release], animationRetainCycleBypassObject = nil;
+		if (animationTimer) [animationTimer invalidate], SPClear(animationTimer);
+		if (animationRetainCycleBypassObject) SPClear(animationRetainCycleBypassObject);
 		animationStartTime = [NSDate monotonicTimeInterval];
 
 		// Determine the animation length, in seconds, starting with a quarter of a second
@@ -367,6 +366,27 @@
 		[super adjustSubviews];
 		return;
 	}
+	
+	
+	// Imagine width=9,viewCount=2 and suggestedSizes would return {4.5, 4.5}
+	// If we did a roundf() we would exceed the size limit (because we'd get {5,5}).
+	// However if we don't round, we might get two float values which don't add up anyway
+	// because of a precision issue.
+	// So let's do the following instead: round alernating between DOWN and UP.
+	// Finnally give the remainder to the last subview.
+	// Example with width=11,viewCount=3 -> 3 ; 4 ; 3 + (11 - 10) = 3;4;4
+	CGFloat *viewSizesRaw = calloc(sizeof(CGFloat), viewCount);
+	CGFloat spaceRemaining = totalAvailableSize;
+	for (i = 0; i < viewCount; i++) {
+		//recalculate value
+		CGFloat floatVal = [[viewSizes objectAtIndex:i] floatValue];
+		CGFloat rounded = viewSizesRaw[i] = ((i % 2) == 0)? floorf(floatVal) : ceilf(floatVal);
+		spaceRemaining -= rounded;
+	}
+	//last one gets the remainder
+	if(spaceRemaining) {
+		viewSizesRaw[i-1] += spaceRemaining;
+	}
 
 	CGFloat splitViewBreadth;
 	if ([self isVertical]) {
@@ -379,17 +399,17 @@
 	CGFloat originPosition = 0;
 	for (i = 0; i < viewCount; i++) {
 		NSView *eachSubview = [[self subviews] objectAtIndex:i];
-		CGFloat viewSize = [[viewSizes objectAtIndex:i] floatValue];
+		CGFloat viewSize = viewSizesRaw[i];
 		NSRect viewFrame = [eachSubview frame];
 
 		if ([self isVertical]) {
-			viewFrame.origin.x = roundf(originPosition);
-			viewFrame.size.width = roundf(viewSize);
+			viewFrame.origin.x = originPosition;
+			viewFrame.size.width = viewSize;
 			viewFrame.size.height = splitViewBreadth;
 		} else {
-			viewFrame.origin.y = roundf(originPosition);
+			viewFrame.origin.y = originPosition;
 			viewFrame.size.width = splitViewBreadth;
-			viewFrame.size.height = roundf(viewSize);
+			viewFrame.size.height = viewSize;
 		}
 
 		[eachSubview setFrame:viewFrame];
@@ -400,6 +420,8 @@
 			originPosition += [self dividerThickness];
 		}
 	}
+	
+	free(viewSizesRaw);
 
 	// Invalidate the cursor rects
 	[[self window] invalidateCursorRectsForView:self];
@@ -776,9 +798,9 @@
 	float viewLength, sizeDifference, totalGive, changedLength;
 	float totalCurrentSize = 0;
 	float resizeProportionTotal = 1.f;
-	float *originalSizes = malloc(subviewCount * sizeof(float));
-	float *minSizes = malloc(subviewCount * sizeof(float));
-	float *maxSizes = malloc(subviewCount * sizeof(float));
+	float *originalSizes = calloc(subviewCount, sizeof(float));
+	float *minSizes = calloc(subviewCount, sizeof(float));
+	float *maxSizes = calloc(subviewCount, sizeof(float));
 	BOOL *sizesCalculated;
 	float *resizeProportions;
 	NSMutableArray *outputSizes = [NSMutableArray arrayWithCapacity:subviewCount];
@@ -832,8 +854,8 @@
 
 		// If the animation has reached the end, ensure completion tasks are run
 		if (animationProgress == 1) {
-			if (animationTimer) [animationTimer invalidate], [animationTimer release], animationTimer = nil;
-			if (animationRetainCycleBypassObject) [animationRetainCycleBypassObject release], animationRetainCycleBypassObject = nil;
+			if (animationTimer) [animationTimer invalidate], SPClear(animationTimer);
+			if (animationRetainCycleBypassObject) SPClear(animationRetainCycleBypassObject);
 
 			// If uncollapsing, restore the original view and remove the helper
 			if (!collapsibleSubviewCollapsed) {
@@ -885,8 +907,8 @@
 	}
 
 	// Set up some arrays for fast lookups
-	sizesCalculated = malloc(subviewCount * sizeof(BOOL));
-	resizeProportions = malloc(subviewCount * sizeof(float));
+	sizesCalculated = calloc(subviewCount, sizeof(BOOL));
+	resizeProportions = calloc(subviewCount, sizeof(float));
 
 	// Prepopulate them
 	for (i = 0; i < subviewCount; i++) {
@@ -1111,12 +1133,12 @@
 		[[wrappedView window] makeFirstResponder:firstResponderToRestore];
 	}
 
-	[wrappedView release], wrappedView = nil;
+	SPClear(wrappedView);
 }
 
 - (void)dealloc
 {
-	if (wrappedView) [wrappedView release], wrappedView = nil;
+	if (wrappedView) SPClear(wrappedView);
 
 	[super dealloc];
 }

@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPPrintController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPPrintController.h"
 #import "SPTableContent.h"
@@ -195,7 +193,7 @@
 {
 	[[printWebView mainFrame] loadHTMLString:HTMLString baseURL:nil];
 
-	if (printThread) [printThread release];
+	if (printThread) SPClear(printThread);
 }
 
 /**
@@ -253,7 +251,7 @@
 		[printData setObject:indexes forKey:@"indexes"];
 		[printData setObject:indexColumns forKey:@"indexColumns"];
 
-		if ([indexes count]) [printData setObject:[NSNumber numberWithInteger:1] forKey:@"hasIndexes"];
+		if ([indexes count]) [printData setObject:@1 forKey:@"hasIndexes"];
 		
 		[rows release];
 		[indexes release];

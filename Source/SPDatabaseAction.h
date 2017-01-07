@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPDatabaseAction.h
 //  sequel-pro
 //
@@ -28,10 +26,23 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPTablesList;
 @class SPMySQLConnection;
+
+@interface SPCreateDatabaseInfo : NSObject
+{
+	NSString *databaseName;
+	NSString *defaultEncoding;
+	NSString *defaultCollation;
+}
+
+@property (readwrite,retain) NSString *databaseName;
+@property (readwrite,retain) NSString *defaultEncoding;
+@property (readwrite,retain) NSString *defaultCollation;
+
+@end
 
 @interface SPDatabaseAction : NSObject 
 {
@@ -54,5 +65,24 @@
  * @property tablesList
  */
 @property (readwrite, assign) SPTablesList *tablesList;
+
+/**
+ * This method creates a new database.
+ *
+ * @param dbInfo database name/charset/collation (charset, collation may be nil)
+ * @return success
+ * @see createDatabase:withEncoding:collation:
+ */
+- (BOOL)createDatabase:(SPCreateDatabaseInfo *)dbInfo;
+
+/**
+ * This method creates a new database.
+ *
+ * @param database  name of the new database to be created
+ * @param encoding  charset of the new database (can be nil to skip)
+ * @param collation sorting collation of the new database (can be nil)
+ * @return YES on success, otherwise NO
+ */
+- (BOOL)createDatabase:(NSString *)database withEncoding:(NSString *)encoding collation:(NSString *)collation;
 
 @end

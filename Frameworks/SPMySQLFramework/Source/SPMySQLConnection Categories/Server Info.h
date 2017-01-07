@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  Server Info.h
 //  SPMySQLFramework
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPMySQLResult;
 
@@ -46,5 +44,15 @@
 // Server tasks & processes
 - (SPMySQLResult *)listProcesses;
 - (BOOL)killQueryOnThreadID:(unsigned long)theThreadID;
+
+/**
+ * mysql_shutdown() - If the user has the permission, will shutdown the (remote) server
+ * @return Whether the command was executed successfully
+ *         Note: this can also be NO if the user denied a reconnect attempt.
+ *
+ * WARNING: This method may return NO if the current thread is cancelled!
+ *          You MUST check the isCancelled flag before using the result!
+ */
+- (BOOL)serverShutdown;
 
 @end

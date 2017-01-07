@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoriteTextFieldCell.h
 //  sequel-pro
 //
@@ -28,16 +26,19 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "ImageAndTextCell.h"
 
 @interface SPFavoriteTextFieldCell : ImageAndTextCell
 {
 	BOOL drawsDividerUnderCell;
+	NSColor *labelColor;
 }
 
 - (BOOL)drawsDividerUnderCell;
 - (void)setDrawsDividerUnderCell:(BOOL)drawsDivider;
+
+@property(copy)NSColor *labelColor;
 
 @end

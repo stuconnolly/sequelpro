@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPFavoriteColorSupport.m
 //  sequel-pro
 //
@@ -28,65 +26,67 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPFavoriteColorSupport.h"
 
 @implementation SPFavoriteColorSupport
 
-static SPFavoriteColorSupport *ColorSupport = nil;
+static SPFavoriteColorSupport *_colorSupport = nil;
 
 - (id)init
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         prefs = [NSUserDefaults standardUserDefaults];
     }
+
     return self;
 }
 
 + (SPFavoriteColorSupport *)sharedInstance
 {
-	if(!ColorSupport)
-		ColorSupport = [[self allocWithZone:NULL] init];
+	if (!_colorSupport) {
+		_colorSupport = [[self allocWithZone:NULL] init];
+	}
 	
-	return ColorSupport;
+	return _colorSupport;
 }
 
 
 + (NSArray *)defaultColorList
 {
 	return [NSArray arrayWithObjects:
-			[NSColor colorWithDeviceRed:228.0/255.0 green:116.0/255.0 blue:102.0/255.0 alpha:1.0],
-			[NSColor colorWithDeviceRed:237.0/255.0 green:174.0/255.0 blue:107.0/255.0 alpha:1.0],
-			[NSColor colorWithDeviceRed:227.0/255.0 green:213.0/255.0 blue:119.0/255.0 alpha:1.0],
-			[NSColor colorWithDeviceRed:175.0/255.0 green:215.0/255.0 blue:119.0/255.0 alpha:1.0],
-			[NSColor colorWithDeviceRed:118.0/255.0 green:185.0/255.0 blue:232.0/255.0 alpha:1.0],
-			[NSColor colorWithDeviceRed:202.0/255.0 green:152.0/255.0 blue:224.0/255.0 alpha:1.0],
-			[NSColor colorWithDeviceRed:182.0/255.0 green:182.0/255.0 blue:182.0/255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:228.0 / 255.0 green: 116.0 / 255.0 blue:102.0 / 255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:237.0 / 255.0 green: 174.0 / 255.0 blue:107.0 / 255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:227.0 / 255.0 green: 213.0 / 255.0 blue:119.0 / 255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:175.0 / 255.0 green: 215.0 / 255.0 blue:119.0 / 255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:118.0 / 255.0 green: 185.0 / 255.0 blue:232.0 / 255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:202.0 / 255.0 green: 152.0 / 255.0 blue:224.0 / 255.0 alpha:1.0],
+			[NSColor colorWithDeviceRed:182.0 / 255.0 green: 182.0 / 255.0 blue:182.0 / 255.0 alpha:1.0],
 			nil];
 }
-
 
 - (NSColor *)colorForIndex:(NSInteger)colorIndex
 {
 	NSArray *colorList = [self userColorList];
-	//check bounds
-	if(colorIndex < 0 || (NSUInteger)colorIndex >= [colorList count]) {
-		NSLog(@"%s: Requesting color index %ld, but only have %lu items. Returning nil.",__PRETTY_FUNCTION__,(long)colorIndex,(unsigned long)[colorList count]);
+
+	// Check bounds
+	if (colorIndex < 0 || (NSUInteger)colorIndex >= [colorList count]) {
 		return nil;
 	}
 
 	return [colorList objectAtIndex:colorIndex];
 }
 
-
 - (NSArray *)userColorList
 {
 	NSArray *archivedColors = [prefs objectForKey:SPFavoriteColorList];
 	NSMutableArray *colorList = [NSMutableArray arrayWithCapacity:[archivedColors count]];
-	for (NSData *archivedColor in archivedColors) {
+
+	for (NSData *archivedColor in archivedColors)
+	{
 		NSColor *color = [NSUnarchiver unarchiveObjectWithData:archivedColor];
+
 		[colorList addObject:color];
 	}
 	

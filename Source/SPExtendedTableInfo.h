@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPExtendedTableInfo.h
 //  sequel-pro
 //
@@ -29,7 +27,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 @class SPTableData;
 @class SPDatabaseData;
@@ -77,7 +75,7 @@
 - (IBAction)updateTableEncoding:(id)sender;
 - (IBAction)updateTableCollation:(id)sender;
 - (IBAction)resetAutoIncrement:(id)sender;
-- (IBAction)resetAutoIncrementValueWasEdited:(id)sender;
+- (IBAction)tableRowAutoIncrementWasEdited:(id)sender;
 
 // Others
 - (void)loadTable:(NSString *)table; 

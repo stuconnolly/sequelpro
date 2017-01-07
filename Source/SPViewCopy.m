@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPViewCopy.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPViewCopy.h"
 
@@ -47,14 +45,18 @@
 	NSMutableString *createStatement = [[NSMutableString alloc] initWithString:[self _createViewStatementFor:view inDatabase:sourceDatabase]];
 	
 	NSString *search = [NSString stringWithFormat:@"VIEW %@", [view backtickQuotedString]];
-	
+
 	NSRange range = [createStatement rangeOfString:search];
 	
 	if (range.location != NSNotFound) {
 		
 		NSUInteger replaced = [createStatement replaceOccurrencesOfString:search withString:[NSString stringWithFormat:@"VIEW %@.%@", [targetDatabase backtickQuotedString], [view backtickQuotedString]] options:0 range:range];
 		
-		if (replaced != 1) return NO;
+		if (replaced != 1) {
+			[createStatement release];
+
+			return NO;
+		}
 	
 		// Replace all occurrences of the old database name
 		[createStatement replaceOccurrencesOfString:[sourceDatabase backtickQuotedString]

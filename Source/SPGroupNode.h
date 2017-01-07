@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPGroupNode.h
 //  sequel-pro
 //
@@ -28,8 +26,9 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
+#import "SPNamedNode.h"
 /**
  * @class SPGroupNode SPGroupNode.h
  *
@@ -37,7 +36,7 @@
  *
  * Tree node that represents a group.
  */
-@interface SPGroupNode : NSObject <NSCopying, NSCoding>
+@interface SPGroupNode : NSObject <NSCopying, NSCoding, SPNamedNode>
 {
 	BOOL nodeIsExpanded;
 	
@@ -55,7 +54,9 @@
 @property (readwrite, assign) BOOL nodeIsExpanded;
 
 - (id)initWithName:(NSString *)name;
+- (id)initWithDictionary:(NSDictionary *)dict;
 
 + (SPGroupNode *)groupNodeWithName:(NSString *)name;
++ (SPGroupNode *)groupNodeWithDictionary:(NSDictionary *)dict;
 
 @end

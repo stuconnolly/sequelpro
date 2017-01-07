@@ -1,6 +1,4 @@
 //
-//  $Id$
-//
 //  SPServerVariablesController.m
 //  sequel-pro
 //
@@ -28,7 +26,7 @@
 //  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
-//  More info at <http://code.google.com/p/sequel-pro/>
+//  More info at <https://github.com/sequelpro/sequelpro>
 
 #import "SPServerVariablesController.h"
 #import "SPDatabaseDocument.h"
@@ -62,17 +60,18 @@
 
 - (void)awakeFromNib
 {
-	NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+	prefs = [NSUserDefaults standardUserDefaults];
 	
 	// Set the process table view's vertical gridlines if required
 	[variablesTableView setGridStyleMask:([prefs boolForKey:SPDisplayTableViewVerticalGridlines]) ? NSTableViewSolidVerticalGridLineMask : NSTableViewGridNone];
 
 	// Set the strutcture and index view's font
 	BOOL useMonospacedFont = [prefs boolForKey:SPUseMonospacedFonts];
-	
+	CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
 	for (NSTableColumn *column in [variablesTableView tableColumns])
 	{
-		[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+		[[column dataCell] setFont:useMonospacedFont ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 	}
 	
 	// Register as an observer for the when the UseMonospacedFonts preference changes
@@ -116,7 +115,7 @@
 	
 	// If the filtered array is allocated and it's not a reference to the processes array get rid of it
 	if ((variablesFiltered) && (variablesFiltered != variables)) {
-		[variablesFiltered release], variablesFiltered = nil;
+		SPClear(variablesFiltered);
 	}		
 }
 
@@ -127,13 +126,27 @@
 {
 	NSSavePanel *panel = [NSSavePanel savePanel];
 	
-	[panel setAllowedFileTypes:[NSArray arrayWithObject:@"cnf"]];
+	[panel setAllowedFileTypes:@[@"cnf"]];
 
 	[panel setExtensionHidden:NO];
 	[panel setAllowsOtherFileTypes:YES];
 	[panel setCanSelectHiddenExtension:YES];
 	
-	[panel beginSheetForDirectory:nil file:@"ServerVariables" modalForWindow:[self window] modalDelegate:self didEndSelector:@selector(savePanelDidEnd:returnCode:contextInfo:) contextInfo:nil];
+    [panel setNameFieldStringValue:@"ServerVariables"];
+    [panel beginSheetModalForWindow:[self window] completionHandler:^(NSInteger returnCode) {
+        if (returnCode == NSOKButton) {
+            if ([variablesFiltered count] > 0) {
+                NSMutableString *variablesString = [NSMutableString stringWithFormat:@"# MySQL server variables for %@\n\n", [[SPAppDelegate frontDocument] host]];
+                
+                for (NSDictionary *variable in variablesFiltered)
+                {
+                    [variablesString appendFormat:@"%@ = %@\n", [variable objectForKey:@"Variable_name"], [variable objectForKey:@"Value"]];
+                }
+                
+                [variablesString writeToURL:[panel URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+            }
+        }
+    }];
 }
 
 
@@ -161,25 +174,6 @@
 	
 	// Open the sheet
 	[NSApp beginSheet:[self window] modalForWindow:window modalDelegate:self didEndSelector:nil contextInfo:nil];
-}
-
-/**
- * Invoked when the save panel is dismissed.
- */
-- (void)savePanelDidEnd:(NSSavePanel *)panel returnCode:(NSInteger)returnCode contextInfo:(NSString *)contextInfo
-{
-	if (returnCode == NSOKButton) {
-		if ([variablesFiltered count] > 0) {
-			NSMutableString *variablesString = [NSMutableString stringWithFormat:@"# MySQL server variables for %@\n\n", [[(SPAppController*)[NSApp delegate] frontDocument] host]];
-			
-			for (NSDictionary *variable in variablesFiltered) 
-			{
-				[variablesString appendFormat:@"%@ = %@\n", [variable objectForKey:@"Variable_name"], [variable objectForKey:@"Value"]];
-			}
-			
-			[variablesString writeToURL:[panel URL] atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-		}
-	}
 }
 
 /**
@@ -223,10 +217,11 @@
 	else if ([keyPath isEqualToString:SPUseMonospacedFonts]) {
 		
 		BOOL useMonospacedFont = [[change objectForKey:NSKeyValueChangeNewKey] boolValue];
-		
+		CGFloat monospacedFontSize = [prefs floatForKey:SPMonospacedFontSize] > 0 ? [prefs floatForKey:SPMonospacedFontSize] : [NSFont smallSystemFontSize];
+
 		for (NSTableColumn *column in [variablesTableView tableColumns])
 		{
-			[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:[NSFont smallSystemFontSize]] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+			[[column dataCell] setFont:(useMonospacedFont) ? [NSFont fontWithName:SPDefaultMonospacedFontName size:monospacedFontSize] : [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
 		}
 		
 		[variablesTableView reloadData];
@@ -297,7 +292,7 @@
 	// If the filtered array is allocated and its not a reference to the variables array
 	// relase it to prevent memory leaks upon the next allocation.
 	if ((variablesFiltered) && (variablesFiltered != variables)) {
-		[variablesFiltered release], variablesFiltered = nil;
+		SPClear(variablesFiltered);
 	}
 	
 	variablesFiltered = [[NSMutableArray alloc] init];
@@ -375,7 +370,7 @@
 		NSPasteboard *pasteBoard = [NSPasteboard generalPasteboard];
 		
 		// Copy the string to the pasteboard
-		[pasteBoard declareTypes:[NSArray arrayWithObjects:NSStringPboardType, nil] owner:nil];
+		[pasteBoard declareTypes:@[NSStringPboardType] owner:nil];
 		[pasteBoard setString:string forType:NSStringPboardType];
 	}
 }
@@ -384,9 +379,9 @@
 
 - (void)dealloc
 {
-	[[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:SPUseMonospacedFonts];
+	[prefs removeObserver:self forKeyPath:SPUseMonospacedFonts];
 
-	[variables release], variables = nil;
+	SPClear(variables);
 	
 	[super dealloc];
 }
